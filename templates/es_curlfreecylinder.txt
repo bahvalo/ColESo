@@ -1,0 +1,12 @@
+### Incompressible irrotational flow around a cylinder
+### Cylinder geometry
+X       0            # Cylinder position
+Y       0            # Cylinder position
+R       0.5          # Cylinder radius
+
+### Flow parameters
+#SoundVel  100.0     # Sound speed in background flow
+#FlowVel     1.0     # Velocity of background flow
+#gam         1.4     # Specific ratio
+
+Gamma       0.0      # Circulation around the cylinder

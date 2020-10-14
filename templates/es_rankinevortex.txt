@@ -1,0 +1,17 @@
+### Rankine vortex
+### Vortex position and orientation
+axis    2               # Vortex axis: 0 - X, 1 - Y, 2 - Z
+X	0.0             # Coordinates of the vortex center at t=0 (coordinate along the axis is unused)
+Y	0.0             # Coordinates of the vortex center at t=0 (coordinate along the axis is unused)
+Z	0.0             # Coordinates of the vortex center at t=0 (coordinate along the axis is unused)
+R	1               # Vortex radius (coordinate scaling)
+
+### Background field
+#vx       0.0           # background flow
+#vy       0.0           # background flow
+#vz       0.0           # background flow
+#SoundVel 1.0           # sound speed in undisturbed medium. Should be 1.0
+#gam      1.4           # specific ratio
+
+### Vortex strength
+Mach	0.25            # Ratio of maximal velocity (relative to the background flow) and the sound speed in undisturbed medium

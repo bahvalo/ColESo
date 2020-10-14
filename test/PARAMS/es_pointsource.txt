@@ -1,0 +1,24 @@
+# f(t) parameters
+Ampl 1.0         # multiplicator
+Freq 0.0125      # linear frequency i. e. omega = 2*pi*Freq
+Phase 0.0        # phase
+tmin -80.0       # source acts from tmin
+tmax 0.0         # source acts till tmax
+SignalType 6     # signal form. 1: sin(2*Pi*Freq*t); 6: (sin(2*Pi*Freq*t))^4
+
+# Space parameters of the source
+Aterm 10.0       # multiplicator
+Form  0          # impulse form, 0:Gaussian, 1:Cos^2. Not used unless NormalizeForm flag is unset
+Bterm 1.5        # impulse width. Not used unless NormalizeForm flag is unset
+NormalizeForm    # enabled by default. This flag means that Aterm is L1-norm. Otherwise Aterm will be considered as maximal value of f(r) and recalculated using Bterm
+CoorX 100.0        # impulse coordinates
+CoorY 0.0
+CoorZ 0.0
+
+# Background flow parameters: steady flow
+SoundVel 1.0
+FlowMach 0.5
+# Background flow parameters: unsteady flow
+#UnstAmpl 0.0
+#UnstFreq 1.0
+#UnstPhase 0.0

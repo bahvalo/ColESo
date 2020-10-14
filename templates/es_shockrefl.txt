@@ -1,0 +1,15 @@
+### Shock wave by wall reflection (1D case)
+### Problem geometry
+WallPosition     100.0          # Wall position
+
+### Physical fields left to the shock
+#RhoL  27/7                     # Density
+#UL    20/9                     # Velocity
+#PL    155/21                   # Pressure
+
+### Physical fields right to the shock (velocity is zero)
+# Fields should satisfy Rankine - Hugoniot jump comditions
+#RhoR  1.0
+#PR    1.0/1.4
+
+#gam 7/5                        # Specific ratio

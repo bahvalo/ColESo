@@ -1,0 +1,16 @@
+Aterm              100.0          # Amplitude
+Bterm                1.0          # Width
+CoorX               20.0
+CoorY                0.0
+
+# Periodic duplicating of localized pulsations
+PerX                40.0
+PerY              1e10
+
+NumPeriodsX         3
+NumPeriodsY         0
+#NAngularPeriods     1
+#Checkerboard        0                  # Checkerboard lattice of impulses (real period is 2*PerX, 2*PerY)
+
+FlowVelX          0.0
+FlowVelY          0.0

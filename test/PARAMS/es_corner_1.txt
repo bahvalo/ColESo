@@ -1,0 +1,12 @@
+Xterm        10.0
+Yterm        50.0
+Aterm        1e-3
+Bterm        3.0
+#Form           0   # 0: Gaussian, no other variants
+
+# Параметры интегрирования
+Hmax         7.0   # (Full radius) / Bterm
+GR           128
+mm             1
+
+angle        2*PI

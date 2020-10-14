@@ -1,0 +1,14 @@
+### Gaussian pulse diffraction inside a sector with angle 2*Pi/n
+### Pulse parameters
+#Xterm       10.0           # Pulse center
+#Yterm       40.0           # Pulse center
+#Aterm        0.001         # Pulse amplitude
+#Bterm        3.0           # Pulse radius
+
+### Corner geometry
+angle         2*PI          # Angle of the corner. Should be 2*PI/n with a natural n. If n is even, there will be no diffraction
+
+### Integration parameters
+Hmax          8.5           # Pulse profile is assumed to be zero for r>Bterm*Hmax
+GR          128             # Number of nodes in Gaussian quadratures
+mm            1             # Number of segments in compound Gaussian quadratures (if mm=1, compound quadratures are not used)

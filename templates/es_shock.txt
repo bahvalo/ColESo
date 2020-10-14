@@ -1,0 +1,15 @@
+### Shock wave (shock discontinuity) prescribed by fields at the supersonic side and Mach number of the shock
+### Normal to the discontinuity and its position
+ex 1.0          # normal to the discontinuity 
+ey 0.0          # normal to the discontinuity 
+ez 0.0          # normal to the discontinuity 
+DF_Coor 200.0   # coordinate of the discontinuity in the normal direction, i. e. it has the form ex*x+ey*y+ez*z=DF_Coor
+
+### Fields at the supersonic side
+#Rho 1.0      # Density (default: 1.0)
+#U   0.0      # Velocity (default: 0.0)
+#P   1.0      # Pressure (default: 1.0)
+#C   1.0      # Sound speed. Can be set instead of Rho or P
+
+### Shock strength
+#Mach 2.0     # Mach number of the shock

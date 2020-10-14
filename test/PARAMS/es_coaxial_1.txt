@@ -1,0 +1,10 @@
+AsimuthalMode   1
+rmin            0.3
+rmax            1
+kz              0
+RadialMode      0
+Ampl            1.0
+phase           0.0
+
+FlowVel        0.0
+SoundVel       1.0

@@ -1,0 +1,24 @@
+### Acoustic wave in planar or circular channel with viscosity and heat transfer
+### Equation parameters
+#nu            1.0           # viscosity
+#gamma         1.4           # specific ratio
+#Prandtl    1e50             # Prandtl number
+
+### Geometry parameters
+form          0             # 0 - planar channel, 1 - cylindrical channel
+R             1.0           # for cylindrical channel only: cylinder raduis
+Ymin         -0.5           # for planar channel only: channel position
+Ymax          0.5           # for planar channel only: channel position
+CoorAxis      2             # for cylindrical channel only: axial direction: 0 - X, 1 - Y, 2 - Z
+
+### Solution parameters
+k             0.0           # axial wave number
+AsimuthalMode 8             # for cylindrical channel only: asimuthal mode
+RadialMode    1             # radial (for cylindrical channel) / transversal (for planar channel) mode
+ampl          1.0           # multiplicator
+phase         0.0           # phase (axial shift)
+
+### additional parameters adjusting iterative process for solving the equation for 'omega'
+#dmumax      1e50           # maximal value for delta(mu). Autodetect if not set
+loglevel      1
+ControlRootsJump 0

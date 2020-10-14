@@ -1,0 +1,267 @@
+------------------------------------------------------------------------------
+| Collection of exact solutions (ColESo)                                     |
+|                                                                            |
+| Revised  XX.XX.2020                                                        |
+------------------------------------------------------------------------------
+
+See the file COPYING for license information.
+See the file AUTHORS for information about authors and contributors.
+See the file NEWS for recent revisions.
+
+
+I.    Introduction
+II.   Directories and Files
+III.  Building of ColESo and running checks
+IV.   Usage
+          Usage with C++
+          Usage with C
+          Usage with FORTRAN
+V.    Format of parameters files
+VI.   Errors treatment
+VII.  Thread-safety
+VIII. Used libraries
+IX.   Contacts
+
+Introduction
+------------
+
+Collection of exact solutions (ColESo library) consists of more than 
+30 analytical solutions. The main purpose is the verification of 
+numerical methods for compressible flow simulation. The base of 
+the collection is a set of solutions of linearized Euler and 
+Navier – Stokes equations. Besides, ColESo incorporates several 
+nonlinear solutions, including the solution of Riemann problem.
+
+Directories
+-----------
+
+There are seven directories in the main directory of this distribution,
+described below
+
+docs       This directory contains documents related to ColESo library.
+
+example    This directory contains simple programs on FORTRAN, C, and C++
+           illustrating the usage of ColESo library.
+
+projects   This directory contains a solution for Microsoft Visual Studio 2008.
+
+qd         This directory contains QD library (quad-double/double-double
+           computation package). This package is not a part of ColESo library
+           and is given for the benefit of the user.
+
+src        This directory contains the source code of the ColESo library,
+           including tests and the C++ header files.
+           es_specfunc.cpp and es_specfunc_dd.cpp contains special functions.
+           es_jacobi_rule.hpp contains Gauss - Jacobi quadrature formulas.
+           es_aux.cpp implements outer interface.
+           es_tests.cpp	contains some checks whether the solutions satisfy 
+               the equations they should.
+           io_parser.cpp is a file and formula parser with square wheels.
+           Other *.cpp files implements one or more exact solutions.
+
+templates  For each solution implemented in ColESo, this directory contains
+           a file with the set of parameters. File format is described below.
+
+test       This directory contains examples of the use of ColESo library
+           that dumps data to plot figures. Examples are given in each 
+           of the following languages: C++, C, and FORTRAN.
+           To plot figures using the generated data, bash script and gnuplot
+           are used.
+
+Building of ColESo and running checks
+-------------------------------------
+
+Building is possible using Makefile. The description of targets is below.
+All libraries and executables will be created in ./bin.
+
+qd-package    Build QD library
+
+lib           Build ColESo library with double precision only
+libqd         Build ColESo library with double, double-double and quad-double
+              precision
+
+examplecpp    Build a simple program on C++ that uses ColESo
+examplec      Build a simple program on C that uses ColESo
+examplef      Build a simple program on FORTRAN that uses ColESo
+examplecppqd  Build a simple program on C++ that uses ColESo with extra
+              precision
+
+testcpp       Build a program on C++ that dumps data needed to plot figures
+testcpprun    The same, and run it, and plot figures using gnuplot
+testc         Build a program on C that dumps data needed to plot figures
+testcrun      The same, and run it, and plot figures using gnuplot
+testf         Build a program on FORTRAN that dumps data needed to plot figures
+testfrun      The same, and run it, and plot figures using gnuplot
+
+check         Run checks that the solutions satisfy the equations they
+              should satisfy
+checkqd       For the solution for wave in a circular channel, check
+              the solution satisfies linearized Navier - Stokes equations
+              with double, double-double, and quad-double precision
+
+clean         Removes all output directories (bin, test/DATA1D, test/DATA2D)
+
+For Miscrosoft Visual Studio users, we enclose a solution containing two simple 
+programs on C++, one of them uses double precision and another one uses 
+double-double precision. To build the second one, the user should define the 
+corresponding flag (#define EXTRAPRECISION_COLESO) in src/personal.h 
+and rebuild the ColESo library.
+
+Usage
+-----
+
+In order to compute an exact solution using ColESo library, one should 
+proceed with the following operations.
+1) Create an object corresponding to the solution in need.
+2) Specify parameters of the solution or call the function reading them from file.
+3) Call the function initializing the solution.
+4) Call the function computing the solution at a point and a time moment given.
+   This function can be called multiple times, at single- or multiple-thread mode.
+
+Usage with C++
+--------------
+
+In C++, one can directly handle the objects corresponging to exact solutions.
+Each exact solution corresponds to a class inheriting abstract class tPointFunction.
+
+I. Create an object. 
+To create an object corresponding to an exact solution one should create an instance
+of the corresponding class. For example,
+s_CornerPlanar S;
+
+II. Specify parameters.
+Parameters can be read from a file using method ReadParamsFromFile(const char*). 
+For example, to read parameters from file.txt one can write
+S.ReadParamsFromFile("file.txt");
+If file name is not specified, then default file name corresponding to the class
+will be used. In this case, this is es_cornerplanar.txt. 
+
+Parameters can also be specified by direct assign to class members.
+For example, to specify unit amplitude one can write
+S.Aterm = 1.0;
+Class members can slightly differ from the parameter names as they are read 
+from the file. This correspondence becomes clear once one look at the 
+code of the method ReadParams() of the corresponding class.
+
+III. Initialize. 
+Prior to compute the solution, the solution should be initialized. For example,
+S.Init();
+
+IV. Compute the solution. 
+To compute the solution, one should use method PointValue. It takes time, coordinates, 
+and a pointer to the output array. Minimal size of the output array depends on 
+the solution type but not more than 10 elements.
+
+Usage with C
+------------
+
+To be usable in programs written in C, ColESo library has the static
+vector of objects accessible through a special interface.
+
+I. Create an object. 
+To create an object corresponding to an exact solution one should call the function
+void coleso_add_function(char* FUNCNAME, int* ID);
+This function takes the name of a solution, creates an object and returns 
+its identifier (position in the vector). For example,
+int ID; coleso_add_function("CornerPlanar", &ID);
+Further access to the created object is provided via this identifier.
+
+II. Specity parameters. 
+Parameters can be read from a file using function
+void coleso_read_file(int ID, char* FILENAME);
+This function takes an identifier and a name of a file. For example,
+coleso_read_file(ID, "PARAMS/es_cornerplanar.txt");
+
+Parameters can also be specified using string-based interface, namely,
+void coleso_set_parameter(char* PARAMNAME, char* PARAMVALUE);
+void coleso_read_set(int ID);
+The first function adds a parameter to the static string buffer, 
+and the second one reads data from it similar to the reading from file.
+Argument PARAMNAME coincides with the parameter name as it is written 
+in file and does not obligatory coincide with the name of the class member.
+For example,
+coleso_set_parameter("Aterm", "1.0");
+coleso_set_parameter("Bterm", "3.0");
+coleso_read_set(ID);
+
+III. Initialize. 
+Prior to compute the solution, the solution should be initialized 
+using function
+void coleso_init(int ID);
+For example,
+coleso_init(ID);
+
+IV. Compute the solution.
+To compute the solution, one should use the function
+void coleso_pointvalue(int ID, double T, double* C, double* V);
+It takes time, coordinates, and a pointer to the output array. 
+Minimal size of the output array depends on 
+the solution type but not more than 10 elements.
+
+Usage with FORTRAN
+------------------
+
+The use of ColESo in FORTRAN is similar to its use in C.
+Note that each string passing to ColESo should be NULL-terminated 
+for the correct treatment in C/C++.
+
+An example of the use of ColESo in a program in FORTRAN 
+can be found in example.f.
+
+Parameters file format
+----------------------
+
+Parameters file is read line-by-line. Each line consists of a parameter name
+and its value separated by spaces and/or tabs. 
+Value is an arithmetic expression, where constant PI is defined. 
+Starting from '#', all symbols in a line are ignored. 
+Byte Order Mark (BOM) in the beginning of a file is unacceptable. 
+
+In templates folder, some parameters are commented, i. e. disabled by placing 
+'#' in the beginning of the line. This is for the benifit of the author. 
+To use these parameters, symbol '#' should be removed.
+
+Error treatment
+---------------
+
+In a case of error, ColESo does not return an error code to the calling subroutine.
+It executes the macro crash(...) defined in personal.h. It can be redefined. 
+In reading the parameters file and in some Init() subroutines, 
+log is processing using the macro pprintf(...), which can also be redefined.
+ 
+Thread-safety
+-------------
+
+ColESo library itself is thread-safe.
+
+Interface for C and FORTRAN programs is based on static variables. 
+When calling coleso_add_function, there must be no other access 
+to ColESo at the same time. When specifying parameters of a solution, 
+parameters of another solutions must not be specified.
+
+Used libraries
+--------------
+
+ColESo uses several auxiliary functions from open source projects, including:
+
+* library of Research Computing Center of Moscow State University,
+  http://num-anal.srcc.msu.ru;
+* Cephes, http://www.netlib.org/cephes
+* GNU LibQuadMath, https://gcc.gnu.org/onlinedocs/gcc-4.9.4/libquadmath
+* Jacobi quadrature rules by J. Burkadrt,
+  people.sc.fsu.edu/~jburkardt/cpp_src/jacobi_rule/jacobi_rule.html
+
+Distribution conditions of these libraries may differ from the ones
+of the rest of ColESo library.
+
+In order to deal with extra precision floating point arithmetics,
+ColESo uses the following library:
+
+* QD – A C++/Fortran-90 double-double and quad-double package,
+  https://github.com/aoki-t/QD
+
+Contacts
+--------
+
+In case you have question regarding ColESo, want to report bugs
+or contribute to the project you can use the mail box <bahvalo@mail.ru>.

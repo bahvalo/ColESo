@@ -1,0 +1,24 @@
+### Planar wave with Gaussian profile
+### Normal to the wave front
+DirX               1.0
+DirY               0.0
+DirZ               0.0
+
+### Form of the solution
+Aterm              1.0          # Amplitude of pressure pulsation 
+Bterm              1.0          # Half-width of the Gaussian
+NormalDistance  1e16            # Distance between Gaussian pulses; should be much greater than Bterm
+#Rmax           1e50            # If set, solution is set to zero outsize the infinite circular cylinder with radius Rmax and axis direction DirX,DirY,DirZ
+
+### Initial position of the Gaussian
+Xterm              0.0
+Yterm              0.0
+Zterm              0.0
+
+### Background field
+#RhoRef            1.0
+#URef              0.0
+#VRef              0.0
+#WRef              0.0
+#PRef              1.0/1.4
+#gam               1.4          # specific ratio

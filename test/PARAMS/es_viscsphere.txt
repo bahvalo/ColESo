@@ -1,0 +1,8 @@
+# Cylinder geometry
+R       0.5
+
+# Flow parameters
+gam         1.4
+Rey         0.1
+SoundVel  100.0
+FlowVel     1.0

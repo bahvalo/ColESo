@@ -1,0 +1,9 @@
+### Linear vortex in a circle
+### Problem parameters
+#nu                0.01        # viscosity coefficient
+R                  1.0         # radius of the circle
+CoorAxis           2           # axial direction (i. e. normal to the circle): 0 - X, 1 - Y, 2 - Z
+profile            x*sin(PI*x) # initial data for u_phi(x), where x = r/R
+
+### Approximation parameters
+NumModes 10     # number of terms in the series

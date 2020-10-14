@@ -1,0 +1,5 @@
+x0           0.0           # perturbation center
+l            0.2           # perturbation width
+gam          5./3.         # specific ratio
+SoundVel     sqrt(10.)/3.  # sound speed in background media
+FlowVel      -sqrt(10.)    # background flow

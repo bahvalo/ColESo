@@ -1,0 +1,9 @@
+Xterm 50
+Yterm 50
+Aterm1 0.1    # Entropy coeff
+Aterm2 0.1    # Vortex coeff
+Bterm 3
+#PerX 100
+#PerY 100
+FlowVelX 0.5
+FlowVelY 0.0

@@ -1,0 +1,11 @@
+### Incompressible potential flow around a sphere
+# Sphere geometry
+X       0.0
+Y       0.0
+Z       0.0
+R       0.5
+
+### Flow parameters
+#SoundVel  100.0     # Sound speed in background flow
+#FlowVel     1.0     # Velocity of background flow
+#gam         1.4     # Specific ratio

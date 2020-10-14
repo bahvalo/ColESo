@@ -1,0 +1,16 @@
+### Couette flow between parallel plates and coaxial cylinders
+### Problem geometry
+CoorAxis           2                   # axis direction
+X                  0.0                 # a point on the axis
+Y                  0.0                 # a point on the axis
+Z                  0.0                 # a point on the axis
+RIn                1.0                 # radius of the inner cylinder
+ROut               2.0                 # radius of the outer cylinder
+
+### Cylinder velocities
+OmegaIn            0.15                # angular velocity of the inner cylinder
+OmegaOut           0.0                 # angular velocity of the outer cylinder
+
+### Equation parameters
+#Pr                1.0                 # Prandtl number
+#gam               1.4                 # specific ratio

@@ -1,0 +1,16 @@
+### Wave propagation from initial pulse - calculating the solution via integrating of Green function
+### Pulse parameters
+#Xterm       10.0           # Pulse center
+#Yterm       40.0           # Pulse center
+#Aterm        0.001         # Pulse amplitude
+#Bterm        3.0           # Pulse radius
+#Form           0           # Pulse profile: 0 - Gaussian, 1 - Cos^2
+
+### Background flow. Sound speed is assumed to be equal to 1.0
+#FlowVelX      0.0
+#FlowVelY      0.0
+
+### Integration parameters
+Hmax         8.5            # If Form==0, pulse profile is assumed to be zero for r>Bterm*Hmax
+GR           128            # Number of nodes in Gaussian quadratures
+mm             1            # Number of segments in compound Gaussian quadratures (if mm=1, compound quadratures are not used)

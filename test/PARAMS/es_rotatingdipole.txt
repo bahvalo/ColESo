@@ -1,0 +1,4 @@
+Ampl 1.0
+Omega 0.1              # default: using mesh rotating velocity
+Phase 0.0
+dir 2

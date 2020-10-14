@@ -1,0 +1,6 @@
+### 4 pulses of different forms (scalar case)
+Aterm 1           # Amplitude (default: 1)
+Xmin 0            # Xmin (default: -1)
+Xmax 1            # Xmax (default: 1)
+Period 1          # Period of signal (default: Xmax - Xmin)
+SoundSpeed 1      # Transport velocity (default: 1)

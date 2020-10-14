@@ -1,0 +1,5 @@
+### Rotating dipole
+Ampl 1.0               # Multiplier
+#Omega 1.0             # Angular velocity (circular)
+Phase 0.0              # Phase
+dir 2                  # Axis of the dipole

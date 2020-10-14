@@ -1,0 +1,26 @@
+### 1D Riemann problem
+### Normal to the discontinuity and its position
+ex 1.0          # normal to the discontinuity 
+ey 0.0          # normal to the discontinuity 
+ez 0.0          # normal to the discontinuity 
+DF_Coor 200.5   # coordinate of the discontinuity in the normal direction, i. e. it has the form ex*x+ey*y+ez*z=DF_Coor
+
+### Specific problem: if not CUSTOM, automatically set the default values for all parameters below
+KeyProblem CUSTOM     # Sod, Lax, ZhmF
+
+### Fields at the left (ex*x+ey*y+ez*z < DF_Coor)
+RhoL	0.5     # Density
+UL	2       # Velocity in the normal direction
+PL	0.5     # Pressure
+
+### Fields at the right (ex*x+ey*y+ez*z > DF_Coor)
+RhoR	12/11   # Density
+UR	11/12   # Velocity in the normal direction
+PR	19/12   # Pressure
+
+### Equation parameters
+#gam    1.4     # Specific ratio
+
+### Misc
+#SteadyTest 1   # If nonzero, checks that the initial data satisfies Rankine - Hugoniot conditions
+

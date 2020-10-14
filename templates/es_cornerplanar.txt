@@ -1,0 +1,6 @@
+### Gaussian pulse diffraction inside a sector with angle 2*Pi/n
+angle     2*PI/3           # angle (can be only 2*Pi/N with natural N). If N is even, then is no diffraction
+phi0      PI/4             # direction what does the incoming wave come from
+X0        100              # distance between the Gaussian center at t=0 and the corner vertex
+Bterm     3                # half-width of the incoming Gaussian
+Aterm     1e-3             # amplitude of the incoming Gaussian

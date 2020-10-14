@@ -1,0 +1,14 @@
+### Single mode in free space
+### Equation parameters
+#mu      0.0         # viscosity
+#gamma   1.4         # specific ratio
+#Prandtl 1.0         # Prandtl number. Set 1e50 to use no-heat-conductive case
+
+### Solution parameters
+Ampl    1.0          # amplitude of the acoustic mode
+AmplVX  0.0          # amplitude of the vortex mode with curl aligned with X (for no-heat-conductive case only)
+AmplVY  0.0          # amplitude of the vortex mode with curl aligned with Y (for no-heat-conductive case only)
+AmplVZ  0.0          # amplitude of the vortex mode with curl aligned with Z (for no-heat-conductive case only)
+kx      2*PI         # components of the wave vector (affect all modes)
+ky      2*PI         # components of the wave vector (affect all modes)
+kz      2*PI         # components of the wave vector (affect all modes)

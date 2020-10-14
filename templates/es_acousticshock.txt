@@ -1,0 +1,15 @@
+### Propagation of an acoustic perturbation through a shock (1D)
+### Background field (should prescribe a shock wave with PR > PL)
+#gam                1.4                 # Specific ratio
+#DF_Coor            0.0                 # Shock position at t=0
+#RhoL               0.5                 # Density left to the shock
+#UL                 2.0                 # Velocity left to the shock
+#PL                 0.5                 # Pressure left to the shock
+#RhoR               12/11               # Density right to the shock
+#UR                 11/12               # Velocity right to the shock
+#PR                 19/12               # Pressure right to the shock
+
+### Initial Gaussian acoustic pulse
+#Aterm              0.001               # Amplitude
+#Bterm              1.0                 # Half-width
+#Xterm            -50.0                 # Initial position (Xterm should be less than DF_Coor)

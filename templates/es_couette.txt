@@ -1,0 +1,22 @@
+### Couette flow between parallel plates
+### Problem geometry
+xL -0.5            # left wall position
+xR 0.5             # right wall positions
+
+### Boundary conditions for velocity
+vL 0.0             # velocity (v_y) of the left wall
+vR 0.15            # velocity (v_y) of the right wall
+
+### Boundary conditions for temperature
+condL 1            # type of the condition on the left wall: 0 - adiabatic, 1 - isothermal
+tL    1.0/1.4      # temperature on the left wall (if condL=1)
+condR 0            # type of the condition on the right wall: 0 - adiabatic, 1 - isothermal
+tR    1.0/1.4      # temperature on the right wall (if condR=1)
+
+### Pressure (which is constant in space)
+pressure 1.0/1.4
+
+### Equation parameters
+#ViscType 0        # Viscosity coefficient. 0: mu = const; 1: mu = const/sqrt(T)
+#gam 1.4           # specific ratio
+#Pr 1.0            # Prandtl number

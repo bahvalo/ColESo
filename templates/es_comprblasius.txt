@@ -1,0 +1,22 @@
+### Problem parameters
+#re        200.      #  Reynolds number
+#SoundVel  1./3.     #  sound speed in the reference flow ( = 1/Mach )
+#                    #  flow speed is hardcoded to be 1.0
+#Pr        0.72      #  Prandtl number
+#gam       1.4       #  Specific ratio 	
+
+### Viscosity
+mu_type    0        # type of viscosity ( 0 = power law; 1 = Sutherland law )
+ps         0.5      # parameter of power law  (mu = T^ps)
+sat        0.0      # parameter of Sutherland law
+
+### BC parameters
+bc_type    0        # type of BC for heat ( 0 = adiabatic (default); 1 = isothermic )
+temp_wall  2.       # temperature value  (if bc_type == 1 )
+
+### parameters for numerical integration
+#L_sim     5.    #  mesh size ( to calculate selfsimilar solution )
+#N_sim     1000  #  number of intervals  ( to calculate selfsimilar solution )
+#eps_rel   1e-7  #  relative accuracy of iterative procedure 
+#eps_abs   1e-8  #  absolute accuracy of iterative procedure 
+#Iter_max  100   #  max. number of iterations 

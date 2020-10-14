@@ -1,0 +1,5 @@
+### Problem parameters
+#re       7600.0    #  Reynolds number 
+#gam         1.4    #  specific ratio
+#SoundVel  100.0    #  sound speed in the reference flow
+#FlowVel     1.0    #  speed of the reference flow

@@ -1,0 +1,12 @@
+Xterm              25.0  #
+Yterm              0.0  #
+Zterm              0.0  #
+
+Aterm              10.0  # Amplitude
+Bterm              1.0  # 
+NormalDistance     100  # Period
+
+DirX               1.0  #
+DirY               0.0  #
+DirZ               0.0  #
+Rmax               1e50 #

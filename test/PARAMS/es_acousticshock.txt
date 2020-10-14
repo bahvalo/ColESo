@@ -1,0 +1,14 @@
+Aterm     0.1    # Amplitude
+Bterm    20      # Half-width
+Xterm   100      # Initial impluse position
+gam       1.4    # Specific ratio
+DF_Coor 200.49   # Shock position
+
+# Background field left to the shock
+RhoL  0.5
+UL    2
+PL    0.5
+# Background field right to the shock
+RhoR 12/11
+UR   11/12
+PR   19/12

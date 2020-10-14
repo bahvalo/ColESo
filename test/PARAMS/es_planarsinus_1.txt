@@ -1,0 +1,13 @@
+Xterm              0.0 #
+Yterm              0.0  #
+Zterm              0.0  #
+
+Aterm              1  # Amplitude
+Freq               0.04  #
+Phase              0.0  #
+-AllowNegativePhase     #
+
+DirX               1.0  #
+DirY               0.0  #
+DirZ               0.0  #
+Rmax               1e50 #

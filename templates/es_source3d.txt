@@ -1,0 +1,28 @@
+### Steady source of finite width (3D)
+### Space form of the source
+#Form            GAUSSIAN            # Form of the source: GAUSSIAN or COS2
+#Bterm           1.0                 # Width of the source (if Form==COS2) or Half-width of the Gaussian (if Form==GAUSSIAN)
+#Aterm           1.0                 # If NormalizeForm is set, L1-norm of the source, amplitude otherwise
+#NormalizeForm   1 
+
+### Center of the main source (default: 0,0,0)
+#CoorX           0.0
+#CoorY           0.0
+#CoorZ           0.0
+
+### Lattice of pulses (usually for the use with periodical boundary conditions)
+#NumPeriodsX       0                   # additional sources with x=CoorX+iperx*PerX, where iperx=-NumPeriodsX, ..., NumPeriodsX
+#NumPeriodsY       0                   # additional sources with y=CoorY+ipery*PerY, where ipery=-NumPeriodsY, ..., NumPeriodsY
+#NumPeriodsZ       0                   # additional sources with z=CoorZ+iperz*PerZ, where iperz=-NumPeriodsZ, ..., NumPeriodsZ
+#PerX           1e10                   # offset to the next source
+#PerY           1e10                   # offset to the next source
+#PerZ           1e10                   # offset to the next source
+#NAngularPeriods   1                   # if >1, additional sources will be added by rotation by 2*Pi/NAngularPeriods
+
+### Time dependency of the source
+#Ampl            1.0                 # multiplier. Note that there are two multipliers: Aterm and Ampl
+#Freq            1.0                 # linear frequency
+#Phase           0.0                 # phase shift
+#tmin            0.0                 # source is disabled at t<tmin
+#tmax            1e10                # source is disabled at t>tmax
+#SignalType      1                   # form of the source in time: 1 - sine, 6 - fourth degree of sine

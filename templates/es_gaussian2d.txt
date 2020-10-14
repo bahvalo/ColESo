@@ -1,0 +1,22 @@
+### Wave propagation from a 2D Gaussian pulse
+### Pulse form
+#Form              GAUSSIAN            # Form of the pulse. Only GAUSSIAN
+#Aterm             1.0                 # Amplitude of the pulse
+#Bterm             1.0                 # Half-width of the pulse
+#NormalizeForm     0                   # If nonzero, Aterm is the L1-norm and not amplitude
+
+### Pulse position
+#CoorX             0.0
+#CoorY             0.0
+
+### Lattice of pulses (usually for the use with periodical boundary conditions)
+#PerX           1e10                   # offset to the next pulse
+#PerY           1e10                   # offset to the next pulse
+#NumPeriodsX       0                   # additional pulses with x=CoorX+iperx*PerX, where iperx=-NumPeriodsX, ..., NumPeriodsX
+#NumPeriodsY       0                   # additional pulses with y=CoorY+ipery*PerY, where ipery=-NumPeriodsY, ..., NumPeriodsY
+#NAngularPeriods   1                   # if >1, additional pulses will be added by rotation by 2*Pi/NAngularPeriods
+#Checkerboard      0                   # if nonzero, keep only even values of iperx+ipery
+
+### Background flow. Sound speed is assumed to be equal to 1.0
+#FlowVelX          0.0
+#FlowVelY          0.0

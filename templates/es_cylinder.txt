@@ -1,0 +1,16 @@
+### Gaussian pulse by cylinder diffraction
+### Cylinder geometry 
+X                    0.0         # Cylinder center
+Y                    0.0         # Cylinder center
+Radius               0.5         # Cylinder radius
+
+### Pulse parameters
+#Xterm               4.0         # Pulse center
+#Yterm               0.0         # Pulse center
+#Aterm               1.0         # Pulse amplitide
+#Bterm               0.2         # Pulse half-width
+
+### Discretization parameters
+NumK               200          # Number of terms in a series by radial wave number
+NumN               200          # Number of terms in a series by asimuthal wave number
+#Kmax               30.0         # Maximal radial wave number. Default: 6.0/Bterm

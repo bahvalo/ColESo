@@ -1,0 +1,6 @@
+X 0
+Y 0
+RIn 1.0
+ROut 2.0
+OmegaIn 0.15
+OmegaOut 0

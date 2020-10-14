@@ -1,0 +1,15 @@
+### Entropy and vorticity perturbation with Gaussian profile
+### Perturbation positions
+Xterm        10.0
+Yterm        10.0
+#PerX        1e10     # Period (to use a lattice of perturbations). Should be much greater than Bterm
+#PerY        1e10     # Period (to use a lattice of perturbations). Should be much greater than Bterm
+
+### Perturbation parameters
+Bterm         3       # Half-width of the Gaussian
+Aterm1        0.1     # Multiplier for entropy perturbation
+Aterm2        0.1     # Multiplier for vorticity perturbation
+
+### Background flow (perturbations move in time with this velocity)
+#FlowVelX     0.0
+#FlowVelY     0.0

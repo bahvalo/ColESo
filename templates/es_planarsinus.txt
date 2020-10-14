@@ -1,0 +1,24 @@
+### Planar wave with sine profile
+### Normal to the wave front
+DirX               1.0
+DirY               0.0
+DirZ               0.0
+
+### Total multiplier
+Aterm              1.0          # Amplitude of pressure pulsation 
+AllowNegativePhase 1            # If zero, solution is set to zero when the phase is negative
+#Rmax           1e50            # If set, solution is set to zero outsize the infinite circular cylinder with radius Rmax and axis direction DirX,DirY,DirZ
+
+### Phase shift: a point and a phase at this point at t=0
+Xterm              0.0
+Yterm              0.0
+Zterm              0.0
+Phase              0.0
+
+### Background field
+#RhoRef            1.0
+#URef              0.0
+#VRef              0.0
+#WRef              0.0
+#PRef              1.0/1.4
+#gam               1.4          # specific ratio

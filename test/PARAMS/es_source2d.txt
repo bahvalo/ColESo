@@ -1,0 +1,15 @@
+# --- Signal parameters --- #
+Ampl               1
+Freq               0.1
+Phase              0.0
+# --- Space form of source parameters --- #
+Form               0           # 0:Gaussian, 1:Cos^2
+NormalizeForm      0           # normalize by unut L1-norm
+#NAngularPeriods   1           # number of mirrored sources. By default -- using mesh parameter
+CoorX              50.0
+CoorY              50.0
+Bterm              5
+
+# --- integration parameters
+GR 100
+mm 1

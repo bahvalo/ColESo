@@ -1,0 +1,23 @@
+# положение начального разрыва
+x0      0.0
+
+# Значения слева  (X -> -infty)
+RhoL	1
+UL	1.5811388300841898
+PL	5/7
+
+# Значения справа (X -> +infty)
+RhoR	2
+UR	1.5811388300841898/2
+PR	1.9642857142857146
+
++SteadyTest      # Check that the values 'L' and 'R' correspond to a steady shock
+
+# Equation parameters
+gam     7/5
+Rey     1         # Rey = 1/nu if mode==0 and Rey = 1/mu if mode==1
+Prandtl 1e50      # two variants are permitted: Pr=1e50 and Pr=0.75
+
+mode    0        # mode==0: contant kinematic viscousity, mode==1: constant dynamic viscousity
+
+#+AutodetectShockPosition   # NOISEtte-only: autodetect shock position at each timestep

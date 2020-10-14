@@ -1,0 +1,21 @@
+### Steady source of finite width (2D)
+### Space form of the source
+#Form            GAUSSIAN            # Form of the source: GAUSSIAN or COS2
+#Bterm           1.0                 # Width of the source (if Form==COS2) or Half-width of the Gaussian (if Form==GAUSSIAN)
+#Aterm           1.0                 # If NormalizeForm is set, L1-norm of the source, amplitude otherwise
+#NormalizeForm   1 
+
+### Center of the main source (default: 0,0,0)
+#CoorX           0.0
+#CoorY           0.0
+#CoorZ           0.0
+
+### Time dependency of the source
+#Ampl            1.0                 # multiplier. Note that there are two multipliers: Aterm and Ampl
+#Freq            1.0                 # linear frequency
+#Phase           0.0                 # phase shift
+
+### Integration parameters
+#Hmax            7.0                 # Source profile is assumed to be zero for r>Bterm*Hmax (only for Form==GAUSSIAN)
+GR             128                   # Number of nodes in Gaussian quadratures
+mm               1                   # Number of segments in compound Gaussian quadratures (if mm=1, compound quadratures are not used)

@@ -1,0 +1,12 @@
+# Cylinder geometry
+X       0
+Y       0
+R       0.5
+
+# Flow parameters
+SoundVel    1.0
+FlowVel     0.01
+gam         1.4
+
+# Circulation around the cylinder
+Gamma       0.0 

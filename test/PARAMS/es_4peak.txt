@@ -1,0 +1,5 @@
+Aterm 1           # Amplitude (default: 1)
+Xmin -1           # Xmin (default: -1)
+Xmax 1            # Xmax (default: 1)
+Period 2          # Period of signal (default: Xmax - Xmin)
+SoundSpeed 1      # Transport velocity (default: 1)

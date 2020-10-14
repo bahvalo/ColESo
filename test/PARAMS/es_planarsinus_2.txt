@@ -1,0 +1,12 @@
+Aterm              2.0
+
+DirX               1.0  #
+DirY              -2.0  #
+DirZ               0.0  #
+Xterm              0.0  #
+Yterm              0.0  #
+Zterm              0.0  #
+
+Freq               sqrt(5)/2
+Phase              0.0
++AllowNegativePhase

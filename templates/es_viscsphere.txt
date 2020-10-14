@@ -1,0 +1,9 @@
+### Low-Reynolds flow around a sphere
+### Geometry
+R       0.5           # Sphere radius
+
+### Flow parameters
+#gam         1.4      # Specific ratio
+#Rey         0.1      # Reynolds number
+#SoundVel  100.0      # Sound speed in the background flow
+#FlowVel     1.0      # Flow velocity in the background flow
