@@ -4,25 +4,37 @@ FCX?=gfortran
 COMPILER_OPTIONS = -O3
 INCLUDES = -I../src
 OUTDIR = ../bin
-LIBS ?= $(OUTDIR)/coleso.a
+
+COLESO_LIB = $(OUTDIR)/coleso.a
+COLESO_LIBQD = $(OUTDIR)/colesoqd.a
+
+testc = $(OUTDIR)/testc
+testcpp = $(OUTDIR)/testcpp
+testcppqd = $(OUTDIR)/testcppqd
+testf = $(OUTDIR)/testf
+
+testc: $(testc);
+testcpp: $(testcpp);
+testcppqd: $(testcppqd);
+testf: $(testf);
 
 default: testcpprun ;
 
-testc: $(OUTDIR)/testc
-$(OUTDIR)/testc:	
-	$(CCX) $(COMPILER_OPTIONS) $(INCLUDES) test.c $(LIBS) -lstdc++ -lm -o $@
+$(testc): test.c $(COLESO_LIB)
+	@echo  compiling $@ ...
+	@$(CCX) $(COMPILER_OPTIONS) $(INCLUDES) test.c $(COLESO_LIB) -lstdc++ -lm -o $@
 
-testcpp: $(OUTDIR)/testcpp
-$(OUTDIR)/testcpp:
-	$(CXX) $(COMPILER_OPTIONS) $(INCLUDES) test.cpp $(LIBS) -o $@
+$(testcpp): test.cpp $(COLESO_LIB)
+	@echo  compiling $@ ...
+	@$(CXX) $(COMPILER_OPTIONS) $(INCLUDES) test.cpp $(COLESO_LIB) -o $@
 
-testcppqd: $(OUTDIR)/testcppqd
-$(OUTDIR)/testcppqd:
-	$(CXX) $(COMPILER_OPTIONS) $(INCLUDES) -I.. -DEXTRAPRECISION_COLESO test.cpp $(OUTDIR)/colesoqd.a $(OUTDIR)/libqd.a -o $@
+$(testcppqd): test.cpp $(COLESO_LIBQD)
+	@echo  compiling $@ ...
+	@$(CXX) $(COMPILER_OPTIONS) $(INCLUDES) -I.. -DEXTRAPRECISION_COLESO test.cpp $(COLESO_LIBQD) $(OUTDIR)/libqd.a -o $@
 
-testf: $(OUTDIR)/testf
-$(OUTDIR)/testf:
-	$(FCX) test.f $(INCLUDES) $(LIBS) -J $(OUTDIR) -lstdc++ -o $(OUTDIR)/$@
+$(testf): test.f $(COLESO_LIB)
+	@echo  compiling $@ ...
+	@$(FCX) test.f $(INCLUDES) $(COLESO_LIB) -J $(OUTDIR) -lstdc++ -o $(OUTDIR)/$@
 
 testcrun: testc
 	@mkdir -p DATA1D DATA2D
@@ -43,5 +55,5 @@ testfrun: testf
 	sh ./plotall_2d.sh
 
 clean:
-	rm -rf $(OUTDIR)/testc $(OUTDIR)/testcpp $(OUTDIR)/testf ./DATA1D ./DATA2D
+	rm -rf $(testc) $(testcpp) $(testcppqd) $(testf) ./DATA1D ./DATA2D
 

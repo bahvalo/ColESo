@@ -8,6 +8,7 @@
 #include "parser.h"
 #include "coleso.h"
 #include "geom_primitive.h"
+#include "es_specfunc.h"
 #ifdef _NOISETTE
 #include "lib_base.h"
 #endif
@@ -184,7 +185,7 @@ void s_GaussianVortex::Profile(double r, double& rho, double& u_over_r, double& 
     u_over_r *= A;
 
     double J = 0.0;
-    if(rr > tiny*tiny) J = alpha*(sf13d_c(2.*arr, 2) - sf13d_c(arr, 2)) - SQR(1. - exp(-arr)) / (2.*rr);
+    if(rr > tiny*tiny) J = alpha*(expn(1, 2.*arr) - expn(1, arr)) - SQR(1. - exp(-arr)) / (2.*rr);
     else J = -alpha*CLN2;
     J *= A*A * (gam - 1.0)/gam * pow(gam / SQR(SoundVel), inv_gam);
     J += pow(gam/SQR(SoundVel), -(gam-1.)/gam);

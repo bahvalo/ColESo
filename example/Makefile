@@ -4,29 +4,37 @@ FCX?=gfortran
 COMPILER_OPTIONS = -O3
 INCLUDES = -I../src
 OUTDIR = ../bin
-LIBS ?= $(OUTDIR)/coleso.a
+
+COLESO_LIB = $(OUTDIR)/coleso.a
+COLESO_LIBQD = $(OUTDIR)/colesoqd.a
+
+examplec = $(OUTDIR)/examplec
+examplecpp = $(OUTDIR)/examplecpp
+examplecppqd = $(OUTDIR)/examplecppqd
+examplef = $(OUTDIR)/examplef
+
+examplec: $(examplec);
+examplecpp: $(examplecpp);
+examplecppqd: $(examplecppqd);
+examplef: $(examplef);
 
 default: examplecpp ;
 
-examplec: $(OUTDIR)/examplec
-$(OUTDIR)/examplec:
+$(examplec): main.c $(COLESO_LIB)
 	@echo  compiling $@ ...
-	@$(CCX) $(COMPILER_OPTIONS) $(INCLUDES) main.c $(LIBS) -lstdc++ -lm -o $@
+	@$(CCX) $(COMPILER_OPTIONS) $(INCLUDES) main.c $(COLESO_LIB) -lstdc++ -lm -o $@
 
-examplecpp: $(OUTDIR)/examplecpp
-$(OUTDIR)/examplecpp:
+$(examplecpp): main.cpp $(COLESO_LIB)
 	@echo  compiling $@ ...
-	@$(CXX) $(COMPILER_OPTIONS) $(INCLUDES) main.cpp $(LIBS) -o $@
+	@$(CXX) $(COMPILER_OPTIONS) $(INCLUDES) main.cpp $(COLESO_LIB) -o $@
 
-examplecppqd: $(OUTDIR)/examplecppqd
-$(OUTDIR)/examplecppqd:
+$(examplecppqd): mainqd.cpp $(COLESO_LIBQD)
 	@echo  compiling $@ ...
-	@$(CXX) $(COMPILER_OPTIONS) $(INCLUDES) -I.. mainqd.cpp $(OUTDIR)/colesoqd.a $(OUTDIR)/libqd.a -o $@
+	@$(CXX) $(COMPILER_OPTIONS) $(INCLUDES) -I.. mainqd.cpp $(COLESO_LIBQD) $(OUTDIR)/libqd.a -o $@
 
-examplef: $(OUTDIR)/examplef
-$(OUTDIR)/examplef:
+$(examplef): main.f $(COLESO_LIB)
 	@echo  compiling $@ ...
-	@$(FCX) main.f $(INCLUDES) $(LIBS) -J $(OUTDIR) -lstdc++ -o $(OUTDIR)/$@
+	@$(FCX) main.f $(INCLUDES) $(COLESO_LIB) -J $(OUTDIR) -lstdc++ -o $(OUTDIR)/$@
 
 clean:
-	rm -f $(OUTDIR)/testc $(OUTDIR)/testcpp $(OUTDIR)/testf
+	rm -f $(examplec) $(examplecpp) $(examplecppqd) $(examplef)

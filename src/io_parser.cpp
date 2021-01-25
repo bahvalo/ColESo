@@ -322,7 +322,7 @@ int GetDoubleArrayFromLine(vector<double>& par,const int maxSize,string &line, t
         if( IsNaN(value) ) return i;
         par.push_back(value);
     }
-    return par.size();
+    return (int)par.size();
 }
 
 //======================================================================================================================
@@ -595,7 +595,7 @@ tParameter::tParameter(vector<string>& par, const string& _parName, const tParTy
     initParamBase(_parName,  _parType, _crashIt);
     ptrStringArray = &par;
     limit.SetLimits(UNLIM,0,UNLIM,0);
-    if(parType!=PARTYPE_WORDLIST) crash("Parser error: incompatible types");
+    if(parType != PARTYPE_WORDLIST && parType != PARTYPE_STRINGLIST) crash("Parser error: incompatible types");
 }
 tParameter::tParameter(vector<int>& par, const string& _parName, const tParType _parType, const int _crashIt) {
     initParamBase(_parName,  _parType, _crashIt);
@@ -715,7 +715,7 @@ bool tParameter::GetValue(string pline, bool log, tErrAccumulator* ErrAccumulato
             *ptrDouble = tempDouble;
         break;
     case PARTYPE_DOUBLE3: {
-        double vals[3];
+        double vals[3]={0.0,0.0,0.0};
         for(int i = 0; i<3; i++) {
             if(!GetNextElem(word, pline)) {
                 IO_error_add("Not enough values for parameter \"%s\"", parName.c_str());
@@ -787,6 +787,17 @@ bool tParameter::GetValue(string pline, bool log, tErrAccumulator* ErrAccumulato
     }
     break;
     case PARTYPE_WORDLIST:
+    {
+        string temp;
+        while(GetNextElem(temp, pline, false /*no lowercase*/)) {
+            if(!GetNextWord(word, temp)) { IO_error_add("Parameter \"%s\" contains an empty word in the list", parName.c_str()); break; }
+            trim_string(temp);
+            if (!temp.empty()) { IO_error_add("Parameter \"%s\" is not a list of words", parName.c_str()); break; }
+            ptrStringArray->push_back(word);
+        }
+    }
+        break;
+    case PARTYPE_STRINGLIST:
         while(GetNextElem(word, pline, false /*no lowercase*/))
             ptrStringArray->push_back(word);
         break;
@@ -838,6 +849,7 @@ void tParameter::PrintParameter() const { // Printing parameter to log file
         pprintf("]\n");
         break;
     case PARTYPE_WORDLIST:
+    case PARTYPE_STRINGLIST:
         pprintf("[");
         for(size_t i=0; i<ptrStringArray->size(); i++) {
             if(i) pprintf(", ");
@@ -879,7 +891,7 @@ void tFileBuffer::AllocText(const char* text, size_t length) {
     }
 
     // настраиваем метки на строки
-    EnfOfZoneLine = Lines.size();
+    EnfOfZoneLine = (int)Lines.size();
     if(EnfOfZoneLine) FirstLine = 0;
     GotoZone();
 }
@@ -910,7 +922,7 @@ void tFileBuffer::AllocText(FILE* file) {
     }
 
     // настраиваем метки на строки
-    EnfOfZoneLine = Lines.size();
+    EnfOfZoneLine = (int)Lines.size();
     if(EnfOfZoneLine) FirstLine = 0;
     GotoZone();
 }
@@ -937,12 +949,12 @@ void tFileBuffer::InitMacro(bool log) {
     ListMacroLocal.Evaluate(log); // вычисление значений всего вектора
 
     // подставляем значения в текст
-    if(ListMacroLocal.size()) {
-        for(size_t i = 0; i < Lines.size(); i++) {
-            if(ListMacroLocal.Substitution(Lines[i], log) < 0) {
-                // произошла ошибка при макроподстановке
-                Lines.erase(Lines.begin() + i); i--;
-            }
+    for(size_t i = 0; i < Lines.size(); i++) {
+        if(ListMacroLocal.Substitution(Lines[i], log) < 0) {
+            // произошла ошибка при макроподстановке
+            Lines.erase(Lines.begin() + i); i--; 
+            EnfOfZoneLine = (int)Lines.size();
+            if(!EnfOfZoneLine) FirstLine = -1;
         }
     }
 
@@ -954,8 +966,7 @@ void tFileBuffer::Clear(void){
     Sum = 0;
     ListMacroLocal.clear();
     Lines.clear();
-    if(Used) delete[] Used;
-    Used = NULL;
+    Used.clear();
     CurrentLine = FirstLine = EnfOfZoneLine = NextZoneLine = -1;
     FNameFull.clear();
     // убираем префикс с названием файла, использованный в случае возникновения ошибок
@@ -966,7 +977,7 @@ void tFileBuffer::Clear(void){
 void tFileBuffer::GotoNextZone(void) {
     if(NextZoneLine >= 0) FirstLine = NextZoneLine;
     else FirstLine = EnfOfZoneLine;
-    EnfOfZoneLine = Lines.size();
+    EnfOfZoneLine = (int)Lines.size();
     NextZoneLine = -1;
     GotoZone();
 }
@@ -1024,10 +1035,10 @@ int tFileBuffer::LoadFile(const string& fName, int CrashIt, bool log) {
 }
 
 // создает массив флагов об использовании строк (если его еще нет)
-void tFileBuffer::AllocUsed(void) {
-    if(!Used) {
-        Used = new bool[Lines.size()];
-        for(size_t i = 0; i < Lines.size(); i++) {
+void tFileBuffer::AllocUsed(void){
+    if(Used.size() < Lines.size()){
+        Used.resize(Lines.size()); 
+        for(size_t i=0; i < Lines.size(); i++) {
             if(Lines[i][0] == '$') Used[i] = true; // макро-подстановка
             else Used[i] = false;
         }
@@ -1036,8 +1047,8 @@ void tFileBuffer::AllocUsed(void) {
 
 // ставит флаг об использовании предыдущей строке
 void tFileBuffer::MarkPrevLineAsUsed(void) {
-    ASSERT(CurrentLine > 0, "invalid line number");
-    if(Used) Used[CurrentLine - 1] = true;
+    ASSERT(CurrentLine > 0 && (Used.size()==0 || CurrentLine<=(int)Used.size()), "invalid line number");
+    if(Used.size()>0) Used[CurrentLine - 1] = true;
 }
 
 // Get next line from buffer <pf>
@@ -1110,7 +1121,7 @@ int tFileBuffer::MakeZone(const char* KeyWord) {
             return 0;
         }
     }
-    EnfOfZoneLine = Lines.size();
+    EnfOfZoneLine = (int)Lines.size();
     NextZoneLine = -1;
     CurrentLine = cCurrentLine;
     return 1;
@@ -1119,7 +1130,10 @@ int tFileBuffer::MakeZone(const char* KeyWord) {
 // Copies current zone (part of file) to file buffer FB
 void tFileBuffer::CopyActualZoneTo(tFileBuffer& FB) const {
     FB.Clear();
-    for (int i = FirstLine; i<EnfOfZoneLine; i++) FB.Lines.push_back(Lines.at(i));
+    for(int i = FirstLine; i<EnfOfZoneLine; i++) FB.Lines.push_back(Lines.at(i));
+    FB.EnfOfZoneLine = (int)FB.Lines.size();
+    FB.NextZoneLine = -1;
+    FB.CurrentLine = 0;
 }
 
 // возвращает только имя файла без пути
@@ -1138,7 +1152,7 @@ string tFileBuffer::GetFnameShort(void) const {
 
 // выводит неиспользованные строки в текущей зоне
 int tFileBuffer::PrintUnknownKeywords(void) {
-    if(!Used) return 0;
+    if(Used.size()==0) return 0;
 
     GotoZone();
     int printed = 0;
@@ -2265,7 +2279,7 @@ int tFormula::Parse(const char* str, bool parseLog, tErrAccumulator* ErrAccumula
     }
 
     if(parseLog) pprintf("Parsing %s: stage 2\n", str);
-    int NP = P.size();
+    int NP = (int)P.size();
     if(Parse2(P, 0, NP-1, ErrAccumulator)<0) { clear(); return 1; }
 
     if(parseLog) {
@@ -2288,7 +2302,10 @@ double tFormula::Evaluate(const vector<const double*>& ptrs, const vector<double
     
     double* r=NULL;
     
-    if(N>=TCOND_SIZE) r = new double[N];
+    if(N>=TCOND_SIZE){
+        r = new double[N];
+        memset(r, 0, sizeof(double)*N);
+    }
     else{
         for(int i=0; i<TCOND_SIZE; i++) rbuf[i]=0.0;
         r = &rbuf[0];

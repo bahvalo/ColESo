@@ -236,6 +236,7 @@ private:
 public:
     s_Cylinder() { 
         X = Y = 0.0; Radius = 0.5;  // geometry
+        Xterm = 10.0; Yterm = 0.0; Aterm = 1.0; Bterm = 1.0;
         NumK = NumN = 200; MakeNaN(Kmax); // integration parameters
     }
     const char* filename() const OVERRIDE { return "es_cylinder.txt"; }
@@ -711,7 +712,7 @@ struct s_Couette : tPhysFunction { // Течение Куэтта между д�
     double tL, tR; // Температура стенок (для изотермических ГУ)
     double pressure; // Давление
     int condL, condR; // Условия на стенках: 0 -- адиабатическое, 1 -- изотермическое
-    int ViscType;  // 0 - mu=const; 1 - mu=mu0/sqrt(T)
+    int ViscType;  // 0: mu=const; 1: mu=mu0/sqrt(T); 2: mu=mu0*T
     #ifdef _NOISETTE
         int AutodetectPressure;
     #endif

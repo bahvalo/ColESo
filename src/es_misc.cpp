@@ -11,6 +11,7 @@
 #include "parser.h"
 #include "coleso.h"
 #include "geom_primitive.h"
+#include "es_specfunc.h"
 #ifdef _NOISETTE
 #include "lib_base.h"
 #endif
@@ -288,27 +289,26 @@ void s_Coaxial::ReadParams(tFileBuffer& FB) {
 // Returns 1 if unconvergence occurs
 //======================================================================================================================
 int s_Coaxial::FindRoot(int nu, double rmin, double rmax, double& kr) {
-    int bufsize = 0;
-    NativeDouble* buf = NULL;
+    NativeDouble* buf = new NativeDouble[(nu+3)*4];
+    NativeDouble* bufN = buf + (nu+3)*2;
 
     int success = 0;
     const int MAX_ITERS = 100;
     for(int iter = 0; iter<MAX_ITERS; iter++) {
-        int Nmax = MAX(int(kr*rmax) * 2 + 8, nu+3);
-        if(buf == NULL || Nmax > bufsize) {
-            bufsize = Nmax*2;
-            if(buf) delete[] buf;
-            buf = new NativeDouble[bufsize * 6];
-        }
+        double x = kr * rmin;
+        BesselFunctionsJ(x, nu+2, buf);
+        if(BesselFunctionsY(x, nu+2, bufN)!=nu+2) break; // error
+        double JL = buf[nu], NL = buf[(nu+3)*2+nu];
+        double JpL = - buf[nu+1]  + nu/x*JL;
+        double NpL = - bufN[nu+1] + nu/x*NL;
 
-        double x = kr * rmin, y = kr * rmax;
-        BesselFunctions(x, nu+2, Nmax, buf,           buf+bufsize,   buf+bufsize*2);
-        BesselFunctions(y, nu+2, Nmax, buf+bufsize*3, buf+bufsize*4, buf+bufsize*5);
-        double JL = buf[nu], NL = buf[bufsize+nu], JR = buf[bufsize*3+nu], NR = buf[bufsize*4+nu];
-        double JpL = - buf[          nu+1] + nu/x*JL;
-        double NpL = - buf[bufsize  +nu+1] + nu/x*NL;
-        double JpR = - buf[bufsize*3+nu+1] + nu/y*JR;
-        double NpR = - buf[bufsize*4+nu+1] + nu/y*NR;
+        double y = kr * rmax;
+        BesselFunctionsJ(y, nu+2, buf);
+        if(BesselFunctionsY(y, nu+2, bufN)!=nu+2) break; // error
+        double JR = buf[nu], NR = buf[(nu+3)*2+nu];
+        double JpR = - buf[nu+1]  + nu/y*JR;
+        double NpR = - bufN[nu+1] + nu/y*NR;
+
         // function
         double f  = JpL * NpR - JpR * NpL;
         // derivative
@@ -316,15 +316,15 @@ int s_Coaxial::FindRoot(int nu, double rmin, double rmax, double& kr) {
         fk -= (rmin*rmin - nu*nu/(kr*kr)) * (JL * NpR - JpR * NL) / rmin;
         fk -= (rmax*rmax - nu*nu/(kr*kr)) * (JpL * NR - JR * NpL) / rmax;
         // offset
-        if(fabs(fk) < 1e-50) break;
+        if(fabs(fk) < 1e-50) break; // infinite increment. No convergence
         double df = - f / fk;
         kr += df;
-        if(kr < 0.0) return 1; // got negative value. No convergence
+        if(kr < 0.0) break; // got negative value. No convergence
 
         // We stop iteration process after 2 successive successful iterations
         if(fabs(df) < 1e-10*(1 + fabs(NpR) + fabs(NpL))) success++;
         else success = 0;
-        if(success==2) break;
+        if(success==2) break; // done!
     }
     delete[] buf;
 
@@ -481,7 +481,7 @@ void s_Couette::ReadParams(tFileBuffer& FB) {
 //======================================================================================================================
 void s_Couette::Init() {
     if(xR-xL<tiny) crash("s_Couette: error: xR <= xL");
-    if(ViscType!=0 && ViscType!=1) crash("s_Couette: wrong ViscType %i", ViscType);
+    if(ViscType!=0 && ViscType!=1 && ViscType!=2) crash("s_Couette: wrong ViscType %i", ViscType);
     if(condL!=0 && condL!=1) crash("s_Couette: wrong condL %i", condL);
     if(condR!=0 && condR!=1) crash("s_Couette: wrong condR %i", condR);
     if((condL && tL <= 0.0) || (condR && tR <= 0.0) || (gam<=1.0) || (Pr<=0.0)) crash("s_Couette: wrong parameters");
@@ -489,7 +489,7 @@ void s_Couette::Init() {
     if(ViscType==1) {
         if(!(condL==1 && condR==0)) crash("s_Couette: ViscType==1 is proper only for condL==1 and condR==0");
         double kappa = fabs(vR-vL)/sqrt(tL) * sqrt((gam-1.0)*Pr/(2.0*gam));
-        pprintf("s_Couette::Init (sharp): kappa = %e, tR = %e\n", kappa, tL*(1.0+kappa*kappa));
+        pprintf("s_Couette::Init: kappa = %e, tR = %e\n", kappa, tL*(1.0+kappa*kappa));
     }
 
     double Temp = condL&&condR ? 0.5*(tL+tR) : (condL ? tL : tR); // характерная температура
@@ -508,7 +508,7 @@ void s_Couette::Init() {
 void s_Couette::PointValue(double, const double* coor, double* V) const {
     double x = (coor[0]-xL)/(xR-xL);
     double Vy, T;
-    if(ViscType==0) {
+    if(ViscType==0) { // mu=const
         Vy = vL*(1.0-x) + vR*x;
         double Txx = -(gam-1.0)/gam*Pr*SQR(vR-vL);
 
@@ -520,12 +520,54 @@ void s_Couette::PointValue(double, const double* coor, double* V) const {
 
         T = 0.5*Txx*x*x + b*x + c;
     }
-    else {
+    else if(ViscType==1) { // mu=const/sqrt(T)
+        if(!(condL==1 && condR==0)) crash("s_Couette::PointValue error: wrong configuration");
         double vdash0 = sqrt(2.*tL*gam/(Pr*(gam-1)));
         double c = atan((vR-vL) / vdash0);
         T = cos(c*(1.0-x))/cos(c);
         T = tL*T*T;
         Vy = vR - vdash0 * sin(c * (1.0-x)) / cos(c);
+    }
+    else { // mu=const*T
+        const double varkappa = (gam-1.0)*Pr/gam;
+        double c2, c3;
+        if(condL==1 && condR==1) { // isothermal b.c. on both walls
+            double TL = tL + 0.5*varkappa*vL*vL;
+            double TR = tR + 0.5*varkappa*vR*vR;
+            // solving system c2*vL+c3=TL, c2*vR+c3=TR
+            c2 = (TR - TL) / (vR - vL);
+            c3 = TL - c2*vL;
+        }
+        else if(condL==1) { // isothermal b.c. on the left wall
+            c2 = varkappa*vR;
+            c3 = tL + 0.5*varkappa*vL*vL - c2*vL;
+        }
+        else if(condR==1) { // isothermal b.c. on the right wall
+            c2 = varkappa*vL;
+            c3 = tR + 0.5*varkappa*vR*vR - c2*vR;
+        }
+        else crash("s_Couette::PointValue error: wrong configuration");
+
+        double c1, c4; // we put mu0 = 1
+        {
+            double VL = -C1_6*varkappa*vL*vL*vL + 0.5*c2*vL*vL + c3*vL;
+            double VR = -C1_6*varkappa*vR*vR*vR + 0.5*c2*vR*vR + c3*vR;
+            // solving system c1*xL+c4=VL, c1*xR+c4=VR. We scale x such that xL=0, xR=1
+            c4 = VL;
+            c1 = VR-c4;
+        }
+
+        // It remains to solve the equation
+        double R = c1*x+c4;
+        double vl=MIN(vL,vR), vr=MAX(vL,vR);
+        for(int i=0; i<50; i++) {
+            double vc=0.5*(vl+vr);
+            double fc=-C1_6*varkappa*vc*vc*vc + 0.5*c2*vc*vc + c3*vc;
+            if(fc<R) { vl=vc; }
+            else { vr=vc; }
+        }
+        Vy = 0.5*(vl+vr);
+        T = -0.5*varkappa*Vy*Vy + c2*Vy + c3;
     }
 
     V[Var_U] = V[Var_W] = 0.0;

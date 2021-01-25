@@ -9,6 +9,7 @@
 #include "coleso.h"
 #include "es_utils.h"
 #include "geom_primitive.h"
+#include "es_specfunc.h"
 #ifdef _NOISETTE
 #include "lib_base.h"
 #endif
@@ -47,14 +48,14 @@ void s_Cylinder::Init(void) {
     double rmin = R0 - 7.0 * Bterm;
     double rmax = R0 + 7.0 * Bterm;
     if(rmin < Radius) crash("s_Cylinder::Init error: initial pulse overlaps the cylinder");
-   
+
     // Memory allocation
     Coeff.resize(NumK * NumN, 0.0);
 
     // For each k, calculation the integral by r
     pprintf("s_Cylinder::Init... ");
     const int n1 = NumN+1;
-    double* BesselI = new double[n1*2];
+    double* BI = new double[n1]; // BesselI
     NativeDouble* BesselOuter = new NativeDouble[NumN];
 
     const double Alpha = CLN2 / SQR(Bterm);
@@ -75,7 +76,7 @@ void s_Cylinder::Init(void) {
             double r = rmin + ir * dr;
 
             // Computation of modified Bessel functions
-            sf74r_c<double>(2.*Alpha*r*R0, NumN+1, 1e-10, false, BesselI, BesselI+n1);
+            BesselI<double>(2.*Alpha*r*R0, NumN+1, 1e-10, false, BI);
             double agauss = exp(-Alpha* SQR(r-R0));
 
             for(int ik=0; ik<NumK; ik++) {
@@ -83,7 +84,7 @@ void s_Cylinder::Init(void) {
 
                 BesselOuterFunction(NativeDouble(k*r), NativeDouble(k*Radius), NumN, BesselOuter, NULL);
                 for(int in=0; in<NumN; in++) {
-                    double gauss = BesselI[in] * (in==0 ? 1.0 : 2.0) * agauss;
+                    double gauss = BI[in] * (in==0 ? 1.0 : 2.0) * agauss;
                     double dReA_new = - BesselOuter[in] * gauss * r * k;
                     Coeff[ik*NumN+in] += dReA_new * Aterm * dr;
                 }
@@ -94,11 +95,11 @@ void s_Cylinder::Init(void) {
         err = 0.0;
         for(int i=0; i<NumK*NumN; i++) { err += fabs(Coeff[i] - CoeffOld[i]); CoeffOld[i] = Coeff[i]; }
     }
-    delete[] BesselI;
+    delete[] BI;
     delete[] BesselOuter;
     delete[] CoeffOld;
 
-    pprintf0(" done (err = %e)\n", err);
+    printf0("\rInit done (err = %e)                                    \n", err);
 
     for(int ik=0; ik<NumK; ik++)
         for(int in=0; in<NumN; in++)
@@ -156,7 +157,7 @@ void s_Cylinder::PointValue(double t, const double* coord, double* V) const {
         summ[1] += sumn[1] * sin(k*t) * Kmax * GI.GC[ik];
         summ[2] += sumn[2] * sin(k*t) / (k*r) * Kmax * GI.GC[ik];
     }
-    
+
     V[Var_R] = summ[0];
     V[Var_U] = summ[1] * cos(Phi_loc) + summ[2] * sin(Phi_loc);
     V[Var_V] = - summ[1] * sin(Phi_loc) + summ[2] * cos(Phi_loc);

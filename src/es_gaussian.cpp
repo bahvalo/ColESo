@@ -8,6 +8,7 @@
 #include "parser.h"
 #include "geom_primitive.h" 
 #include "coleso.h"
+#include "es_specfunc.h"
 #ifdef _NOISETTE
 #include "lib_base.h"
 #endif
@@ -78,8 +79,8 @@ tFixArray<fpv,3> s_Gaussian2D_funcBF(fpv xi, void* args) {
     const fpv& r = ((fpv*)args)[0];
     const fpv& t = ((fpv*)args)[1];
     const fpv xx = 1.0 - xi;
-    fpv I[2], buf[2];
-    sf74r_c<fpv>(r*t*xx, 2, get_eps<fpv>()*100.0, false, I, buf); // I0(x)*exp(-x), I1(x)*exp(-x)
+    fpv I[2];
+    BesselI<fpv>(r*t*xx, 2, get_eps<fpv>()*100.0, false, I); // I0(x)*exp(-x), I1(x)*exp(-x)
     const fpv mult = xx / sqrt(1.0 + xx);
     I[0] *= mult; I[1] *= mult;
     tFixArray<fpv,3> f;

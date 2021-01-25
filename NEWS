@@ -1,2 +1,4 @@
-Changes for 1.0  (XX.XX.2020)
-    Initial public revision.
+Changes for 1.0  (25.01.2021)
+    Userguide added.
+    s_Couette now admit \mu(T)=c*T
+    Multiple minor changes fixes.

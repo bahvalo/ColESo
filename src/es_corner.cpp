@@ -17,6 +17,7 @@
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h"
 #endif
+#include "es_specfunc.h"
 
 //======================================================================================================================
 // Common subroutine: solution computation via Taylor expansion near t=0

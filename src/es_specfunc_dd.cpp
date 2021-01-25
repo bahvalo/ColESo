@@ -3,6 +3,7 @@
 // *****                                           Special functions                                               *****
 // *****    Calculation of Bessel functions BesselJ0, BesselJ1, BesselN0, BesselN1 with double-double precision    *****
 // *****                                        Source: GCC libquadmath                                            *****
+// *****                 Adapted for the use with double-double arithmetics given by QD library                    *****
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
@@ -67,14 +68,16 @@
  *
  */
 
-#include "es_utils.h"
+#include "personal.h"
+#include "es_specfunc.h"
 #ifdef _NOISETTE
-#include "lib_base.h"
+    #include "lib_base.h"
 #endif
-
+#ifdef double
+    #undef double
+#endif
 #ifdef EXTRAPRECISION_COLESO
 #include "qd/dd_real.h"
-#include "qd/qd_real.h"
 
 #define __float128 dd_real
 
@@ -1859,24 +1862,8 @@ template<> dd_real BesselN1(dd_real x) {
   z = ONEOSQPI * (p * ss + q * cc) / sqrt (xx);
   return z;
 }
-
-template<> qd_real BesselJ0(qd_real x) { 
-    qd_real re=0.0, im=0.0;
-    BesselJComplex<qd_real>(0, x, 0.0, &re, &im);
-    return re;
-}
-template<> qd_real BesselJ1(qd_real x) { 
-    qd_real re=0.0, im=0.0;
-    BesselJComplex<qd_real>(1, x, 0.0, &re, &im);
-    return re;
-}
-template<> qd_real BesselN0(qd_real) { crash("BesselN0<qd_real> not realized"); }
-template<> qd_real BesselN1(qd_real) { crash("BesselN1<qd_real> not realized"); }
 #endif
 
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
-void ForceLinkerNotToWarnAboutNoPublicSymbols_es_bessel_dd() {
-    crash("ForceLinkerNotToWarnAboutNoPublicSymbols_es_bessel_dd");
+void ForceLinkerNotToWarnAboutNoPublicSymbols_es_specfunc_dd() {
+    crash("ForceLinkerNotToWarnAboutNoPublicSymbols_es_specfunc_dd");
 }

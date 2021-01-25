@@ -887,23 +887,24 @@ template<typename fpv>
 void VerifyLNSE_WaveInChannel(int mode) {
     s_WaveInChannel<fpv> S;
     S.CoorAxis = 2;
-    S.k = 5.0;
+    S.k = 0.0;
     S.kmode = 1;
-    S.l = 1;
-    S.nu = 0.1;
+    S.l = 8;
+    S.nu = 1e-5;
     S.R = 1.0;
-    S.gamma = 1.5;
+    S.gamma = 1.4;
     S.Prandtl = 1.0;
     S.form = 1;
     S._dmumax = 0.02;
     S.Init();
 
-    fpv C[3]  = {0.9, 0.1, 0.0};
+    fpv C[3]  = {0.999, 0.0, 0.0};
     fpv time  = 0.0;
 
     fpv V[10];
     if(mode<0) {
         fpv e = 1e-2;
+        if(e > 0.25*(S.R-C[0])) e = 0.25*(S.R-C[0]);
         for(int k=0; k<10; k++) {
             CheckLNSE((const tPointFunction_EP<fpv>&)S, time, C, V, 3, e, (const fpv*)NULL, S.nu, S.Prandtl, S.gamma, 6);
             printf("%.7e %.7e %.7e %.7e %.7e\n", (double)fabs(V[0]), (double)fabs(V[1]), (double)fabs(V[2]), (double)fabs(V[3]), (double)fabs(V[4]));
@@ -920,7 +921,8 @@ void VerifyLNSE_WaveInChannel(int mode) {
     }
     else {
         fpv e = pow_to_const_int<sizeof(fpv)/8>(3e-3);
-        fpv eps = pow_to_const_int<sizeof(fpv)/8>(1e-10);
+        if(e > 0.25*(S.R-C[0])) e = 0.25*(S.R-C[0]);
+        fpv eps = pow_to_const_int<sizeof(fpv)/8>(1e-4);
         CheckLNSE((const tPointFunction_EP<fpv>&)S, time, C, V, 3, e, (const fpv*)NULL, S.nu, S.Prandtl, S.gamma, 6);
         double err = double(fabs(V[0]) + fabs(V[1]) + fabs(V[2]) + fabs(V[3]) + fabs(V[4]));
         if(err > eps) {

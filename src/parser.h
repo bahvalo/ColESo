@@ -83,16 +83,17 @@ void IO_error_add_str(tErrAccumulator& ErrAccumulator, string sbuf); //adds erro
 
 enum tParType{
     PARTYPE_UNDEFTYPE  = 0,
-    PARTYPE_INT        = 1, // integer
-    PARTYPE_DOUBLE     = 2, // double precision floating point
-    PARTYPE_DOUBLE3    = 3, // 3 double precision floating point values, space separated 
-    PARTYPE_WORD       = 4, // sequence of characters, limited by space character
-    PARTYPE_STRING     = 5, // sequence of characters, limited by new line character
-    PARTYPE_BOOL       = 6, // bool flag of a form +FlagName or -FlagName
-    PARTYPE_ENUM       = 7, // text label of a enum code (uses corresponding dictionary)
-    PARTYPE_INTLIST    = 8, // list of ints till end of line or comment sign
-    PARTYPE_WORDLIST   = 9, // list of words till end of line of comment sign
-    PARTYPE_DOUBLELIST = 10 // list of doubles till end of line or comment sign
+    PARTYPE_INT        = 1,  // integer
+    PARTYPE_DOUBLE     = 2,  // double precision floating point
+    PARTYPE_DOUBLE3    = 3,  // 3 double precision floating point values, space separated 
+    PARTYPE_WORD       = 4,  // sequence of characters, limited by space character
+    PARTYPE_STRING     = 5,  // sequence of characters, limited by new line character
+    PARTYPE_BOOL       = 6,  // bool flag of a form +FlagName or -FlagName
+    PARTYPE_ENUM       = 7,  // text label of a enum code (uses corresponding dictionary)
+    PARTYPE_INTLIST    = 8,  // list of ints till end of line or comment sign
+    PARTYPE_WORDLIST   = 9,  // list of words till end of line or comment sign
+    PARTYPE_DOUBLELIST = 10, // list of doubles till end of line or comment sign
+    PARTYPE_STRINGLIST = 11  // list of sequence of characters till end of line or comment sign
 };
 // Parser interfaces
 void GetNextLine(string &line, FILE* pf, bool fullLine = false);
@@ -338,7 +339,7 @@ public:
 
 class tFileBuffer {// Class for file buffer 
 private:
-    bool* Used;                              // flags for lines
+    vector<bool> Used;                              // flags for lines
     int FirstLine;                           // number of the first line in current zone
     int EnfOfZoneLine;                       // number of the first line after current zone 
     int NextZoneLine;                        // number of the line with the begining of next zone after keyword
@@ -349,8 +350,8 @@ private:
     tMacroSubstitutionVector ListMacroLocal; // macro list for current buffer
 
 public:
-    tFileBuffer() : Used(NULL) { Clear(); }
-    tFileBuffer(const string& fName, int CrashIt=IO_CRASH, bool log=true) : Used(NULL)
+    tFileBuffer() { Clear(); }
+    tFileBuffer(const string& fName, int CrashIt=IO_CRASH, bool log=true)
         { Clear(); LoadFile(fName, CrashIt, log); }
     ~tFileBuffer() { Clear(); }
 

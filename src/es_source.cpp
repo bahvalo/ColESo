@@ -9,13 +9,14 @@
 
 #include "coleso.h"
 #include "parser.h"
-#include "geom_primitive.h" 
+#include "geom_primitive.h"
 #ifdef _NOISETTE
 #include "lib_base.h"
 #endif
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h" 
 #endif
+#include "es_specfunc.h"
 #include <cstdlib>
 
 //======================================================================================================================

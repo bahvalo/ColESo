@@ -7,42 +7,6 @@
 
 #include "personal.h"
 
-// Cylindrical functions
-template<typename fpv> fpv BesselJ0(fpv arg);
-template<typename fpv> fpv BesselJ1(fpv arg);
-template<typename fpv> fpv BesselN0(fpv arg);
-template<typename fpv> fpv BesselN1(fpv arg);
-
-NativeDouble BesselK0(NativeDouble arg, int l=1, int* ierr=NULL);
-NativeDouble BesselK1(NativeDouble arg, int l=1, int* ierr=NULL);
-NativeDouble BesselK2(NativeDouble arg, int l=1, int* ierr=NULL);
-
-template<typename fpv> void sf74r_c(fpv x, int n1, fpv eps, bool s, fpv *t, fpv *t1); // BesselI
-
-NativeDouble BesselJ(int l, NativeDouble x, NativeDouble* dbdx = NULL, NativeDouble* d2bdx2 = NULL, 
-                     NativeDouble* d2bdx3 = NULL, NativeDouble* d2bdx4 = NULL, NativeDouble* d2bdx5 = NULL);
-NativeDouble BesselPrimeZero(int AngularMode, int RadialMode, int log=0);
-void BesselFunctions(NativeDouble x, int n, int nmax, NativeDouble *fun1, NativeDouble *fun2, NativeDouble *work);
-
-template<typename real>
-void BesselJComplex(int l, real x, real y, real* ReBesselJ, real* ImBesselJ, real* ReDBesselJ = NULL, real* ImDBesselJ = NULL);
-
-//======================================================================================================================
-// Вычисление радиальной части собственных функций оператора Лапласа во внешности круга радиуса rc
-// с граничным условием 2-го рода на границе круга
-// Функции определяются формулой u_{nu,k}(r) = phi(nu, k*r, k*r_c), r >= rc,
-// phi(nu,x,y) = (- N'_nu(y) J_nu(x) + J'_nu(y) N_nu(x)) / sqrt((J'_nu(y))^2 + (N'_nu(y))^2), x >= y.
-// Процедура вычисляет значения функций phi(nu,x,y) и dphi/dx(nu,x,y) при заданных x,y и всех nu=0,...,Nmax-1
-//======================================================================================================================
-void BesselOuterFunction(NativeDouble x, NativeDouble y, int Nmax, NativeDouble* phi, NativeDouble* dphi);
-
-void HankelFractions(NativeDouble x, NativeDouble y, int N, NativeDouble *Re, NativeDouble* Im=NULL);
-void PrintBesselFunctions(void);
-void PrintBesselDerivatives(int l);
-
-NativeDouble sf13d_c(NativeDouble x, int l); // экспоненциальные интегралы
-NativeDouble errf(NativeDouble x); // функция ошибок
-void fresnl(NativeDouble x, NativeDouble& ss, NativeDouble& cc); // интегралы Френеля
 
 // Вычисление биномиальных коэффициентов
 inline int Factorial(int n) {int i, f = 1; for(i=2; i<=n; i++) f*=i; return f;}

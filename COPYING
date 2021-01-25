@@ -1,5 +1,11 @@
-This is the license which applies to ColESo library with the exception of 
-es_specfunc.cpp, es_specfunc_dd.cpp, es_jacobi_rule.hpp.
+This is the license which applies to ColESo library with the exception of
+the following files:
+* es_specfunc_cephes.cpp (contains subroutines from Cephes Math Library
+Release 2.8, which is freely distributable);
+* es_specfunc_dd.cpp (contains subroutines from GNU LibQuadMath,
+which is distributable under GPL (version 2.1 or later));
+* es_jacobi_rule.hpp (distributable under LGPL).
+
 
 Copyright (c) 2020, Authors
 Copyright (c) 2020, Keldysh Institute of Applied Mathematics

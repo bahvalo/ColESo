@@ -248,7 +248,7 @@ ColESo uses several auxiliary functions from open source projects, including:
   http://num-anal.srcc.msu.ru;
 * Cephes, http://www.netlib.org/cephes
 * GNU LibQuadMath, https://gcc.gnu.org/onlinedocs/gcc-4.9.4/libquadmath
-* Jacobi quadrature rules by J. Burkadrt,
+* Jacobi quadrature rules by S. Elhay, J. Kautsky, J. Burkadrt,
   people.sc.fsu.edu/~jburkardt/cpp_src/jacobi_rule/jacobi_rule.html
 
 Distribution conditions of these libraries may differ from the ones

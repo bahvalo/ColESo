@@ -9,6 +9,7 @@
 #include "coleso.h"
 #include "es_utils.h"
 #include "geom_primitive.h"
+#include "es_specfunc.h"
 #include <complex>
 #include <string.h>
 #ifdef _NOISETTE
@@ -27,23 +28,23 @@ template<typename fpv>
 void s_WaveInChannel<fpv>::ReadParams(tFileBuffer& FB) {
     tParamManager PM;
     // Equation parameters
-    PM.Request(nu, "nu");             // Коэффициент кинематической вязкости
-    PM.Request(gamma, "gamma");       // Показатель адиабаты
-    PM.Request(Prandtl, "Prandtl");   // Число Прандтля
+    PM.Request(nu, "nu");             // kinematic viscosity
+    PM.Request(gamma, "gamma");       // specific ratio
+    PM.Request(Prandtl, "Prandtl");   // Prandtl number
     // Geometry parameters
     PM.Request(form, "form");         // 0 - planar channel, 1 - cylindrical channel
-    PM.Request(R, "R");               // Radius of the cylinder (for form=1)
-    PM.Request(CoorAxis, "CoorAxis"); // направление, нормальное к кругу
+    PM.Request(R, "R");               // radius of the cylinder (for form=1)
+    PM.Request(CoorAxis, "CoorAxis"); // axial directon (direction normal to the circle): 0=X, 1=Y, 2=Z
     PM.Request(Ymin, "Ymin");         // for planar channel only: channel position
     PM.Request(Ymax, "Ymax");         // for planar channel only: channel position
     // solution parameters
-    PM.Request(k, "k");               // волновое число вдоль оси
-    PM.Request(l, "AsimuthalMode");   // номер азимутальной моды
-    PM.Request(kmode, "RadialMode");  // номер радиальной моды (used if frequency is not set)
+    PM.Request(k, "k");               // axial wave number (real)
+    PM.Request(l, "AsimuthalMode");   // asimuthal wave number (integer, >=0)
+    PM.Request(kmode, "RadialMode");  // radial wave number (integer, >=0; used if frequency is not set)
     PM.Request(ReOmega, "ReOmega");   // real part of frequency (intial value for the iterative process)
     PM.Request(ImOmega, "ImOmega");   // imaginary part of frequency (intial value for the iterative process)
-    PM.Request(ampl, "ampl");         // Общий множитель
-    PM.Request(phase, "phase");       // фаза
+    PM.Request(ampl, "ampl");         // total multiplier
+    PM.Request(phase, "phase");       // phase shift
     // additional
     PM.Request(_dmumax, "dmumax");    // шаг по мю при нахождении частоты (инит.)
     PM.Request(loglevel, "loglevel"); // уровень вывода отчёта об инициализации
@@ -54,7 +55,7 @@ void s_WaveInChannel<fpv>::ReadParams(tFileBuffer& FB) {
 
 
 //======================================================================================================================
-// структура для вспомогательных данных, вычисляемых на этапе инициализации
+// Structure of auxiliary data calculated at the initialization step
 //======================================================================================================================
 template<typename fpv>
 struct s_WaveInChannel_PrivateData {
@@ -99,7 +100,7 @@ s_WaveInChannel<fpv>& s_WaveInChannel<fpv>::operator=(const s_WaveInChannel<fpv>
 
 
 //======================================================================================================================
-// ---- Переопределённые функции комплексного аргумента ----------------------------------------------------------------
+// ---- Functions of a complex argument for arbitrary precision --------------------------------------------------------
 //======================================================================================================================
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -249,7 +250,7 @@ void zdbb(int l, complex<fpv> z, complex<fpv>* f, complex<fpv>* df) {
             denom += ak * sigmak;
             sigmak *= sigma;
             bk = ak * (m+0.5);
-            ak *= (4.0*l*l - (2*m+1)*(2*m+1)) / (8.0 * (m+1));
+            ak *= fpv(4*l*l - (2*m+1)*(2*m+1)) / fpv(8*(m+1));
             bk += ak;
         }
         *f = _I * z * num / denom;
@@ -274,8 +275,12 @@ void zdbb(int l, complex<fpv> z, complex<fpv>* f, complex<fpv>* df) {
 
 
 //======================================================================================================================
+// Calculating point value of the solution
+// ATTENTION: s_WaveInChannel is a tComplexPulsFunction, it returns 10 components
+//======================================================================================================================
 template<typename fpv>
 void s_WaveInChannel<fpv>::PointValue(fpv t, const fpv* coor, fpv* V) const {
+    if(data==NULL) crash("s_WaveInChannel: Init not done");
     complex<fpv> _I = ImaginaryUnit<fpv>();
     complex<fpv> rho, p, ux, uy, uz;
     complex<fpv> mult = ampl;
@@ -291,26 +296,32 @@ void s_WaveInChannel<fpv>::PointValue(fpv t, const fpv* coor, fpv* V) const {
 
         complex<fpv> kappa_plus = cbb(y/H, H*data->varkappa_plus); // cos(y * varkappa_plus) / cos(H * varkappa_plus);
         complex<fpv> kappa_minus = cbb(y/H, H*data->varkappa_minus); // cos(y * varkappa_minus) / cos(H * varkappa_minus);
+        complex<fpv> kappa_vort = cbb(y/H, H*data->varkappa_vort); // cos(y * varkappa_vort) / cos(H * varkappa_vort);
         complex<fpv> kappa_plus_dash = - data->varkappa_plus * sbb(y/H, H*data->varkappa_plus); // sin(y * varkappa_plus) / cos(H * varkappa_plus);
         complex<fpv> kappa_minus_dash = - data->varkappa_minus * sbb(y/H, H*data->varkappa_minus); // sin(y * varkappa_minus) / cos(H * varkappa_minus);
+        complex<fpv> kappa_vort_dash = - data->varkappa_vort * sbb(y/H, H*data->varkappa_vort); // sin(y * varkappa_vort) / cos(H * varkappa_vort);
         complex<fpv> Phi = data->v1a * kappa_plus - data->v1b * kappa_minus;
         complex<fpv> PhiDash = data->v1a * kappa_plus_dash - data->v1b * kappa_minus_dash;
         complex<fpv> Eps = - (kappa_plus - kappa_minus);
-        complex<fpv> As = _I*k*(data->v1a - data->v1b) / (data->varkappa_vort*cos(H * data->varkappa_vort));
 
         p = _I*omega*buf * (- Phi + CC4_3*nu*Eps);
         rho = gamma*p - Eps;
-        ux = -_I*k*Phi + data->varkappa_vort*As*cos(y * data->varkappa_vort);
-        uy = PhiDash + _I*k*As*sin(y * data->varkappa_vort);
+        ux = -_I*k*Phi;
+        uy = PhiDash;
         uz = fpv(0.0);
 
+        if(nu/Prandtl > 1e-50) {
+            complex<fpv> As = _I*k*(data->v1a - data->v1b) / (data->varkappa_vort);
+            ux += data->varkappa_vort*As*kappa_vort;
+            uy += _I*k*As*kappa_vort_dash;
+        }
         mult = ampl * A_exp(_I*(data->Omega*t - k*coor[0] + phase));
     }
     if(form == 1) {
         CoorZ = CoorAxis; CoorX = (CoorAxis + 1)%3; CoorY = (CoorAxis + 2)%3; // оси в плоскости круга
         fpv x = coor[CoorX], y = coor[CoorY], z = coor[CoorZ];
         fpv r = sqrt(x*x+y*y);
-        for(int i=0; i<10; i++) V[i] = 0.0; // s_WaveInChannel -- это tComplexPulsFunction, возвращает 10 компонент
+        for(int i=0; i<10; i++) V[i] = 0.0;
 
         if(r > R*1.0000000001) crash("s_WaveInChannel::PointValue error: r=%.16e > R=%.16e\n", double(r), double(R));
         if(r>R) r = R;
@@ -327,7 +338,7 @@ void s_WaveInChannel<fpv>::PointValue(fpv t, const fpv* coor, fpv* V) const {
         complex<fpv> Znu_sqlp = zbb(l, r/R, data->varkappa_plus*R);
         complex<fpv> Znu_sqlm = zbb(l, r/R, data->varkappa_minus*R);
         // Если теплопроводность отсутствует, считаем, что ГУ по температуре удовлетворять не нужно)
-        if(Prandtl > fpv(9e49)) Znu_sqlm = fpv(0.0);
+        if(Prandtl > fpv(9e49)*nu) Znu_sqlm = fpv(0.0);
 
         complex<fpv> Phi = (gamma-1.0) * ( - data->v1a * Znu_sqlp + data->v1b * Znu_sqlm);
         complex<fpv> Eps = (gamma-1.0) * (               Znu_sqlp -             Znu_sqlm);
@@ -635,7 +646,7 @@ void s_WaveInChannel<fpv>::Init() {
 
     // Checking that the solution satisfies the boundary condition
     if(form==1) {
-        int inviscid = nu<1e-100;
+        int inviscid = nu<1e-50;
         int CoorR = (CoorAxis+1)%3;
         fpv coor[3] = {0.,0.,0.};
         coor[CoorR] = R;
@@ -719,8 +730,9 @@ int s_WaveInChannel<fpv>::SolveEquation(void) {
     }
     if(loglevel>=1) pprintf("omega(initial) = %e %e\n", double(data->Omega.real()), double(data->Omega.imag()));
 
-    if(form==1) {
-        data->varkappa_plus = data->BZ / R;
+    if(form==1 || form==0) {
+        if(form==1) data->varkappa_plus = data->BZ / R;
+        else data->varkappa_plus = kmode*PiNumber/(0.5*(Ymax - Ymin));
         data->varkappa_vort = data->varkappa_minus = 1e60; // скорость затухания вязкого и теплопроводного погранслоёв бесконечны
         data->v1a = -_I / (data->Omega * (fpv(gamma)-1.0));
     }
@@ -739,7 +751,7 @@ int s_WaveInChannel<fpv>::SolveEquation(void) {
     fpv dmu = dmumax; // шаг по коэффициенту вязкости
     fpv mu = 0.0; // текущий коэффициент вязкости
     // если nu=0, то формально решение уже найдено. Но если точность выше двойной, запускаем 1 итерацию для уточнения нуля фукнции Бесселя
-    int finishflag = (nu < 1e-100) && (IsNaN(ReOmega) && IsNaN(ImOmega)) && sizeof(fpv)==8;
+    int finishflag = (nu < 1e-50) && (IsNaN(ReOmega) && IsNaN(ImOmega)) && sizeof(fpv)==8;
     const fpv tolerance = (sizeof(fpv)==32) ? 1e-45 : 1e-12;
     while(!finishflag) {
         // Вычисляем новое значение коэффициента вязкости
@@ -805,7 +817,7 @@ int s_WaveInChannel<fpv>::SolveEquation(void) {
     // Досчитываем переменные, которые были не нужны ранее
     if(form==1) {
         data->v2 = data->v1a * (data->Ynu_sqlpR+fpv(l)) - data->v1b * (data->Ynu_sqlmR+fpv(l));
-        if(!(nu < 1e-100)) {
+        if(!(nu < 1e-50)) {
             data->alpha = - fpv(k) / data->varkappa_vort * (fpv(gamma) - 1.0) * (data->v1a - data->v1b);
             data->beta = _I * (fpv(gamma) - 1.0)/(data->Ynu_a2R + fpv(l)) * data->v2;
         }
@@ -933,7 +945,7 @@ void s_SinusVisc::ReadParams(tFileBuffer& FB) {
 void s_SinusVisc::Init(void){
     if(SQR(kx) + SQR(ky) + SQR(kz) < 1e-30) crash("s_SinusVisc error: kx=ky=kz=0");
 
-    if(Prandtl < 5e49) { // heat-conductive case
+    if(Prandtl < 5e49 && mu > 1e-50) { // heat-conductive case
         if(fabs(AmplVX) + fabs(AmplVY) + fabs(AmplVZ) > tiny)
             crash("s_SinusVisc: vortex modes are allowed only for no-heat-conductive case (P>1e50)");
 
@@ -954,7 +966,7 @@ void s_SinusVisc::Init(void){
 
 //======================================================================================================================
 void s_SinusVisc::PointValue(double t, const double* coor, double* V) const {
-    if(Prandtl < 5e49) { // heat-conductive case
+    if(Prandtl < 5e49 && mu > 1e-50) { // heat-conductive case
         if(IsNaN(ReOmega) || IsNaN(ImOmega) || IsNaN(ReCoeff) || IsNaN(ImCoeff)) crash("s_SinusVisc: init not done");
         double kr = kx*coor[0] + ky*coor[1] + kz*coor[2];
 
