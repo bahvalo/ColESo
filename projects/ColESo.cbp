@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="ColESo" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="../bin/Debug/ColESo" prefix_auto="1" extension_auto="1" />
+				<Option object_output="bin/obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="../bin/Release/ColESo" prefix_auto="1" extension_auto="1" />
+				<Option object_output="bin/obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-fexceptions" />
+			<Add option="-Wno-unknown-pragmas" />
+			<Add directory="../src" />
+		</Compiler>
+		<Unit filename="../src/coleso.h" />
+		<Unit filename="../src/coleso_fortran.h" />
+		<Unit filename="../src/const.h" />
+		<Unit filename="../src/es_aux.cpp" />
+		<Unit filename="../src/es_blasius.cpp" />
+		<Unit filename="../src/es_corner.cpp" />
+		<Unit filename="../src/es_cylinder.cpp" />
+		<Unit filename="../src/es_gaussian.cpp" />
+		<Unit filename="../src/es_jacobi_rule.hpp" />
+		<Unit filename="../src/es_misc.cpp" />
+		<Unit filename="../src/es_planar.cpp" />
+		<Unit filename="../src/es_potential.cpp" />
+		<Unit filename="../src/es_riemann.cpp" />
+		<Unit filename="../src/es_source.cpp" />
+		<Unit filename="../src/es_specfunc.cpp" />
+		<Unit filename="../src/es_specfunc.h" />
+		<Unit filename="../src/es_specfunc_cephes.cpp" />
+		<Unit filename="../src/es_specfunc_dd.cpp" />
+		<Unit filename="../src/es_tests.cpp" />
+		<Unit filename="../src/es_utils.cpp" />
+		<Unit filename="../src/es_utils.h" />
+		<Unit filename="../src/es_visc_acoustics.cpp" />
+		<Unit filename="../src/es_vortex.cpp" />
+		<Unit filename="../src/extraprecision.h" />
+		<Unit filename="../src/geom_primitive.h" />
+		<Unit filename="../src/io_parser.cpp" />
+		<Unit filename="../src/parser.h" />
+		<Unit filename="../src/personal.h" />
+		<Unit filename="../src/pointfuncs.h" />
+		<Unit filename="../test/test.cpp" />
+		<Extensions />
+	</Project>
+</CodeBlocks_project_file>
