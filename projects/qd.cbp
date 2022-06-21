@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="qd" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Release">
+				<Option output="../bin/qd" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="../bin/qd" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Wall" />
+					<Add directory="../" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Unit filename="../qd/bits.cpp" />
+		<Unit filename="../qd/bits.h" />
+		<Unit filename="../qd/c_dd.cpp" />
+		<Unit filename="../qd/c_dd.h" />
+		<Unit filename="../qd/c_qd.cpp" />
+		<Unit filename="../qd/c_qd.h" />
+		<Unit filename="../qd/config.h" />
+		<Unit filename="../qd/dd_const.cpp" />
+		<Unit filename="../qd/dd_inline.h" />
+		<Unit filename="../qd/dd_real.cpp" />
+		<Unit filename="../qd/dd_real.h" />
+		<Unit filename="../qd/fpu.cpp" />
+		<Unit filename="../qd/fpu.h" />
+		<Unit filename="../qd/inline.h" />
+		<Unit filename="../qd/qd_config.h" />
+		<Unit filename="../qd/qd_const.cpp" />
+		<Unit filename="../qd/qd_inline.h" />
+		<Unit filename="../qd/qd_real.cpp" />
+		<Unit filename="../qd/qd_real.h" />
+		<Unit filename="../qd/util.cpp" />
+		<Unit filename="../qd/util.h" />
+		<Extensions>
+			<code_completion>
+				<search_path add="../" />
+				<search_path add="../../" />
+			</code_completion>
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_workspace_file>
+	<Workspace title="Workspace">
+		<Project filename="ColESo.cbp">
+			<Depends filename="qd.cbp" />
+		</Project>
+		<Project filename="qd.cbp" />
+	</Workspace>
+</CodeBlocks_workspace_file>
