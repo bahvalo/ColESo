@@ -6,11 +6,8 @@
 // *********************************************************************************************************************
 
 #include "coleso.h"
-#include "parser.h"
+#include "base_parser.h"
 #include "geom_primitive.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 
 //======================================================================================================================
 void s_CurlFreeCylinder::ReadParams(tFileBuffer& FB) {
@@ -51,7 +48,6 @@ void s_CurlFreeCylinder::PointValue(double, const double* coor, double* V) const
     V[Var_W] = 0.0;
     V[Var_R] = 1.0 + 0.5*(SQR(FlowVel)-SQR(V[Var_U])-SQR(V[Var_V])) / (SoundVel*SoundVel);
     V[Var_P] = SoundVel*SoundVel/gam + 0.5*(SQR(FlowVel)-SQR(V[Var_U])-SQR(V[Var_V]));
-    if(PCEmode) V[Var_R] = 1.0;
 }
 //======================================================================================================================
 
@@ -93,6 +89,5 @@ void s_PotentialSphere::PointValue(double, const double* coor, double* V) const 
     double dKin = 0.5*(SQR(FlowVel)-SQR(V[Var_U])-SQR(V[Var_V])-SQR(V[Var_W]));
     V[Var_R] = 1.0 + dKin / (SoundVel*SoundVel);
     V[Var_P] = SoundVel*SoundVel/gam + dKin;
-    if(PCEmode) V[Var_R] = 1.0;
 }
 //======================================================================================================================

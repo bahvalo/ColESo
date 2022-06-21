@@ -1,4 +1,4 @@
-AsimuthalMode   1
+AzimuthalMode   1
 rmin            0.3
 rmax            1
 kz              0

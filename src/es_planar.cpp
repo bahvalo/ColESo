@@ -9,12 +9,9 @@
 
 #include "coleso.h"
 #include "es_utils.h"
-#include "parser.h"
+#include "base_parser.h"
 #include "geom_primitive.h"
 #include <complex>
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 
 //======================================================================================================================
 void s_PlanarSinus::PointValue(double t, const double* coord, double* uex) const {
@@ -126,7 +123,7 @@ void s_Planar::Init() {
 
 // *********************************************************************************************************************
 // *****                                                                                                           *****
-// *****                     Planar wave with a profile prescribed by a Chebyshev polinomal                        *****
+// *****                     Planar wave with a profile prescribed by a Chebyshev polynomial                        *****
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
@@ -216,12 +213,12 @@ void FillPrim(double *A, double *ref, double _gam) {
 //======================================================================================================================
 
 //======================================================================================================================
-// Решение системы линейных уравнений для N=3 по правилу Крамера
+// Sonving a linear 3x3 system using the Cramer rule
 // Tolerance -- минимальный допустимый детерминант
 //======================================================================================================================
 static int SolveSLAUCramer3(const double* M, const double* B, double* X, double tolerance) {
     double det = M[0]*(M[4]*M[8]-M[5]*M[7]) + M[1]*(M[5]*M[6]-M[3]*M[8]) + M[2]*(M[3]*M[7]-M[4]*M[6]);
-    if(fabs(det) < tolerance) return 1; // Тройка вырождена по абсолютному критерию
+    if(fabs(det) < tolerance) return 1; // degenerate
     det = 1.0/det;
     X[0] = (B[0]*(M[4]*M[8]-M[5]*M[7]) + M[1]*(M[5]*B[2]-B[1]*M[8]) + M[2]*(B[1]*M[7]-M[4]*B[2]))*det;
     X[1] = (M[0]*(B[1]*M[8]-M[5]*B[2]) + B[0]*(M[5]*M[6]-M[3]*M[8]) + M[2]*(M[3]*B[2]-B[1]*M[6]))*det;
@@ -240,11 +237,11 @@ void s_AcousticShock::GetConstitutor(double* UR) const {
     double CR = sqrt(gam*MUR[2]/MUR[0]); // Sound speed
     double gam1 = gam - 1.0;
 
-// Слева одна акустическая волна
+    // One acoustic wave from the left
     UL[0] = 1.0 / (CL*CL);
     UL[1] = 1.0 / (CL*MUL[0]);
     UL[2] = 1.0;
-// Посчитаем то что справа
+    // Calculation what is from the right
     FillPrim(AL, mUL, gam);
     vec[0] = AL[0]*UL[0] + AL[1]*UL[1] + AL[2]*UL[2]; // Vec = AL*UL
     vec[1] = AL[3]*UL[0] + AL[4]*UL[1] + AL[5]*UL[2]; // Vec = AL*UL
@@ -266,7 +263,7 @@ void s_AcousticShock::GetConstitutor(double* UR) const {
     double vvec[3];
     if(SolveSLAUCramer3(AR, vec, vvec, 1e-50)) crash("s_AcousticShock: determinant = 0");
 
-// Разложим по характеристикам
+    // Decompose into modes
     UR[0] = 0.5*(-vvec[1]*mUR[0]*CR + vvec[2]);
     UR[1] = 0.5*( vvec[1]*mUR[0]*CR + vvec[2]);
     UR[2] = vvec[0]*CR*CR - vvec[2];
@@ -280,32 +277,31 @@ void s_AcousticShock::PointValue(double t, const double* coord, double* uex) con
     double CL = sqrt(gam*MUL[2]/MUL[0]); // Sound speed
     double CR = sqrt(gam*MUR[2]/MUR[0]); // Sound speed
 
-    double XShock = DF_Coor + t * VShock; // Положение ударной волны
+    double XShock = DF_Coor + t * VShock; // Shock position
     if(MUR[0]<MUL[0]) crash("s_AcousticShock::PointValue error: RhoL=%e, RhoR=%e", MUL[0], MUR[0]);
 
     uex[Var_V] = 0.0;
     uex[Var_W] = 0.0;
 
-    if(coord[0]<=XShock || fabs(VShock)<tiny) { // Сверхзвуковая область
+    if(coord[0]<=XShock || fabs(VShock)<tiny) { // Supersonic domain
         double phase = (coord[0] - Xterm - t * (CL + MUL[1])) / Bterm;
         double expconst = Aterm*exp(-log(2.0)*SQR(phase));
         uex[Var_R] = expconst / (CL*CL);
         uex[Var_U] = expconst / (CL * MUL[0]);
         uex[Var_P] = expconst;
     }
-    else {
+    else { // Subsonic domain: right acoustic wave and entropy wave. Zero value for left acoustic wave
         double UR[3];
         GetConstitutor(UR);
-// Решение справа считается для каждой из 2х характеристик отдельно. На левой ак. волне ставится 0
-// Для каждой волны вычислим момент времени, в который нужно посчитать значение на границе
-// 1. Правая акустическая волна
+        // For each mode, calculate the time this mode was at the shock position
+        // 1. Right acoustic wave
         double tim = t - (coord[0]-XShock) / (CR + MUR[1] - VShock);
         double phase = (DF_Coor + tim * VShock) - Xterm - tim * (CL + MUL[1]);
         double expconst = Aterm*exp(-log(2.0)*SQR(phase/Bterm));
         uex[Var_R] = expconst * UR[1] / (CR*CR);
         uex[Var_U] = expconst * UR[1] / (CR*MUR[0]);
         uex[Var_P] = expconst * UR[1];
-// 2. Энтропийная волна
+        // 2. Entropy wave
         tim = t - (coord[0]-XShock) / (MUR[1] - VShock);
         phase = (DF_Coor + tim * VShock) - Xterm - tim * (CL + MUL[1]);
         expconst = Aterm*exp(-log(2.0)*SQR(phase/Bterm));

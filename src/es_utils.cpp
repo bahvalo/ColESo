@@ -5,13 +5,12 @@
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
-#include "parser.h"
+#include "base_parser.h"
 #include "es_utils.h"
 #include "pointfuncs.h"
 #include "geom_primitive.h" 
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
+#include "spaceform.h" 
+#include "gaussrule.h"
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h"
 #endif
@@ -20,12 +19,12 @@
 
 //======================================================================================================================
 //
-//                                                Структура для формы импульса
+//                                                Pulse form structure
 //
 //======================================================================================================================
 
 //----------------------------------------------------------------------------------------------------------------------
-// Считывание параметров
+// Reading parameters
 //----------------------------------------------------------------------------------------------------------------------
 template<typename fpv>
 void tSpaceForm<fpv>::Read(tFileBuffer& FB, int CanBePeriodic) {
@@ -36,7 +35,7 @@ void tSpaceForm<fpv>::Read(tFileBuffer& FB, int CanBePeriodic) {
     if(Form==tSpaceForm::FORM_CONST) return;
 
     PM.clear();
-    // Амплитуда и полуширина импульса (по умлочанию равны 1)
+    // Амплитуда и полуширина импульса (по умолчанию равны 1)
     PM.Request(Aterm, "Aterm");
     PM.Request(Bterm, "Bterm");
     PM.RequestOption(NormalizeForm, "NormalizeForm");
@@ -247,52 +246,10 @@ fpv tSpaceForm<fpv>::SpaceForm(const fpv* Coords) const {
 //======================================================================================================================
 
 
-
 //======================================================================================================================
 //
-//                                          Определение узлов и весов квадратур Гаусса
+//                                      Weights and points of Gaussian quadrature rules
 //
-//======================================================================================================================
-
-//======================================================================================================================
-// Вычисление значения полинома Лежандра, определённого на отрезке [0,1], в точке x
-//======================================================================================================================
-template<typename real>
-real _LegendrePolynomial(real x, int order, real* dp) {
-    if(order<=0) return 1.0;
-    real y = 2.0*x-1.0; // переводим из [0,1] в [-1,1]
-    real p1=0.0, p2=1.0;
-    real p3=y;
-    for(int n=1; n<=order-1; n++) {
-        p1 = p2;
-        p2 = p3;
-        p3 = ((2*n+1)*y*p2 - n*p1)/(n+1);
-    }
-    if(dp!=NULL) *dp = 2.0*order*(p2-y*p3)/(1.0-y*y);
-    return p3;
-}
-
-double LegendrePolynomial(double x, int order, double* dp) { return _LegendrePolynomial<double>(x, order, dp); }
-//======================================================================================================================
-
-//======================================================================================================================
-// Вычисление положения i-го узла k-точечной гауссовой квадратуры на (0,1)
-//======================================================================================================================
-template<typename real>
-real GetGaussPoint(int i, int k) {
-    if(i<0 || i>=k) crash("GetGaussPoint error: i = %i, k = %i", i, k);
-    if(k==1) return 0.5;
-    // Найдём корни многочлена Лежандра ньютоновским процессом
-    // Источник: ru.wikipedia.org/wiki/Многочлены_Лежандра
-    real x = cos(PiNumber*real(NativeDouble(4*i+3))/(4*k+2));
-    x = 0.5 + 0.5 * x; // переходим к [0,1]
-    for(int j=0; j<100; j++) { // будем делать 100 итераций Ньютоновского процесса
-        real dp;
-        real p = _LegendrePolynomial<real>(x, k, &dp);
-        x -= p / dp;
-    }
-    return x;
-}
 //======================================================================================================================
 
 
@@ -303,39 +260,29 @@ template<typename fpv>
 void GaussPointsInit(int NumPoints, fpv* Nodes, fpv* Weights, tGItype gi_type) {
     if(NumPoints<=0) return;
     if(gi_type == GI_LEGENDRE) {
-        if(NumPoints==1) { Nodes[0] = 0.5; Weights[0] = 1.0; return; }
-
-        // Заполним положения квадратурных точек
-        for(int i=0; i < NumPoints; i++) {
-            Nodes[i] = GetGaussPoint<fpv>(i, NumPoints);
-        }
-        // Веса квадратуры определяются по формуле: 
-        // [СПРАВОЧНИК ПО СПЕЦИАЛЬНЫМ ФУНКЦИЯМ Под редакцией М. АБРАМОВИЧА и И. СТИГАН. Формула 25.4.29]
-        for(int i=0; i < NumPoints; i++) {
-            fpv dp;
-            _LegendrePolynomial<fpv>(Nodes[i], NumPoints, &dp);
-            fpv w = 1.0/(Nodes[i] * (1.0-Nodes[i]) * dp * dp);
-            Weights[i] = w;
-        }
+        GaussLegendrePointsInit<fpv>(NumPoints, Nodes, Weights);
         return;
     }
-    #ifdef ES_JACOBI_RULE_HPP
     if(gi_type == GI_JACOBI1) {
-        //  Compute the Gauss quadrature formula int_{-1}^1 f(x) / sqrt(1+x) dx.
-        cdgqf<fpv>(NumPoints, 4 /* Gauss-Jacobi */, 0.0 /*alpha*/, -0.5 /*beta*/, Nodes, Weights );
+        #ifdef ES_JACOBI_RULE_HPP
+            //  Compute the Gauss quadrature formula int_{-1}^1 f(x) / sqrt(1+x) dx.
+            cdgqf<fpv>(NumPoints, 4 /* Gauss-Jacobi */, 0.0 /*alpha*/, -0.5 /*beta*/, Nodes, Weights );
 
-        //  Scale the quadrature formula to [0,1]
-        fpv p = sqrt(fpv(0.5));
-        for (int k = 0; k < NumPoints; k++ ) { Nodes[k] = 0.5 + 0.5 * Nodes[k]; Weights[k] *= p; }
-        return;
+            //  Scale the quadrature formula to [0,1]
+            fpv p = sqrt(fpv(0.5));
+            for (int k = 0; k < NumPoints; k++ ) { Nodes[k] = 0.5 + 0.5 * Nodes[k]; Weights[k] *= p; }
+            return;
+        #else
+            crash("ES_JACOBI_RULE is not available");
+        #endif        
     }
-    #endif
-    crash("GaussPointsInit: wrong quadrature type %i", gi_type);
+    crash("Wrong quadrature type %i", gi_type);
 }
 //======================================================================================================================
 
+
 //----------------------------------------------------------------------------------------------------------------------
-// Нанотехнологии
+// Nanotechlology
 //----------------------------------------------------------------------------------------------------------------------
 
 #ifdef EXTRAPRECISION_HEADER
@@ -347,92 +294,11 @@ int IsNaN(qd_real x) {
 }
 #endif
 
-
-
 //======================================================================================================================
-//
-//                 Integration of int f(x) dx or int f(x) / sqrt(x) dx using compound Gauss formulae
-//
-//======================================================================================================================
-
-
-//======================================================================================================================
-// Calculation using compound Gauss formula of the integral
-// int exp(-alpha^2 (x-x0)^2/2) (x-x0)^k h(x) x^gamma dx, x = xmin..xmax,
-// where k=0,1,... (not big), alpha>0, gamma=0 (mode=0) or -1/2 (mode=1),  
-// h -- analytic function on [xmin..xmax] with Linf-norm M and convergence raduis >=r at each point, q = 1/r.
-// If mode = 1, xmin should be zero
-//======================================================================================================================
-template<typename fpv> template<int N>
-tFixArray<fpv,N> tCompoundGaussIntegrator<fpv>::Integrate(fpv xmin, fpv xmax, fpv alpha, fpv x0, int k, int mode, 
-                                             fpv M, fpv q, tFixArray<fpv,N> (*func)(fpv, void*), void* args) const {
-    static const fpv four_over_e = 1.471517764685769286382; // extra precision for estimates is not in need
-    if(mode && fabs(xmin) > 1e-50) crash("tCompoundGaussIntegrator: mode=1 but xmin!=0");
-    if(alpha<0.0) alpha = -alpha;
-    if(alpha<1e-50 || q<0.0) crash("tCompoundGaussIntegrator: alpha=0 or q<0");
-    if(GLI.GN==NULL) crash("tCompoundGaussIntegrator: Init not done");
-    const fpv inv_alpha = 1.0 / alpha;
-    q = fpv(MAX(q, alpha) * reducer);
-    
-    // Gaussian truncating
-    fpv beta = log(11.0*M*(mode ? sqrt(alpha) : alpha) / get_eps<fpv>());
-    fpv H = 1.41;
-    if(beta>1.0) {
-        beta = sqrt(beta);
-        H *= (beta + log(beta) / beta);
-    }
-    fpv xminus = x0 - H*inv_alpha;
-    fpv xplus  = x0 + H*inv_alpha;
-    xplus = MIN(xplus, xmax);
-    xminus = MAX(xminus, xmin);
-
-    // Gauss -- Jacobi quadrature -- if in need
-    tFixArray<fpv,N> sum;
-    sum = 0.0;
-    if(mode) {
-        fpv xminusmin = four_over_e/q;
-        if(xminus<xminusmin) {
-            if(GJI.GN==NULL) crash("tCompoundGaussIntegrator: Init not done");
-            xminus = xminusmin;
-            if(xminus > xmax) xminus = xmax;
-            for(int j=0; j<GJI.GR; j++) {
-                fpv x = GJI.GN[j]*xminus;
-                fpv tmp = alpha * (x-x0);
-                sum += func(x, args) * exp(-0.5*tmp*tmp) * pow(x-x0, double(k)) * GJI.GC[j];
-            }
-            sum *= sqrt(xminus);
-        }
-    }
-    if(xplus <= xminus) return sum;
-
-    // Gauss -- Legendre compound quadrature
-    int NumK = int(q*(xplus - xminus)*0.68) + 1;
-    fpv dx = (xplus - xminus) / NumK;
-    for(int i=0; i<NumK; i++) {
-        for(int j=0; j<GLI.GR; j++) {
-            fpv x = xminus + (i + GLI.GN[j]) * dx;
-            fpv tmp = alpha * (x-x0);
-            fpv f = exp(-0.5*tmp*tmp) * pow(x-x0, double(k));
-            if(mode) f /= sqrt(x);
-            sum += func(x, args) * (f * GLI.GC[j] * dx);
-        }
-    }
-    return sum;
-}
-
-//======================================================================================================================
-// Instantiating functions of the template class
+// Instantiating template classes and functions
 //======================================================================================================================
 #define INSTANTIATE(T) \
     template void GaussPointsInit<T>(int NumPoints, T* Nodes, T* Weights, tGItype); \
-    template struct tGaussIntegrator<T>; \
-    template struct tCompoundGaussIntegrator<T>; \
-    template tFixArray<T,1> tCompoundGaussIntegrator<T>::Integrate<1>(T xmin, T xmax, T alpha, T x0, int k, int mode, \
-                                             T M, T q, tFixArray<T,1> (*func)(T, void*), void* args) const;   \
-    template tFixArray<T,2> tCompoundGaussIntegrator<T>::Integrate<2>(T xmin, T xmax, T alpha, T x0, int k, int mode, \
-                                             T M, T q, tFixArray<T,2> (*func)(T, void*), void* args) const;   \
-    template tFixArray<T,3> tCompoundGaussIntegrator<T>::Integrate<3>(T xmin, T xmax, T alpha, T x0, int k, int mode, \
-                                             T M, T q, tFixArray<T,3> (*func)(T, void*), void* args) const;   \
     template struct tSpaceForm<T>;
 
 INSTANTIATE(NativeDouble)

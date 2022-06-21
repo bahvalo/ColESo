@@ -5,11 +5,9 @@
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
-#include "parser.h"
+#include "base_parser.h"
 #include "coleso.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
+#include "spaceform.h"
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h"
 #endif
@@ -21,7 +19,7 @@
 //         numcoor -- number of coordinates in use (not to waste time for 'z' derivatives in 2D)
 //         h       -- step for numerical differentiation
 //         MF      -- for linearized equations, background field (rho, u, v, w, p).
-//                    If MF==NULL, default vaules are used: 1, 0, 0, 0, 1/gamma
+//                    If MF==NULL, default values are used: 1, 0, 0, 0, 1/gamma
 //         gamma   -- specific ratio (in use only for full Euler equations or if MF==NULL)
 //         method  -- code of a formula for derivatives computation
 // Output: V       -- computed values (5 variables)
@@ -184,7 +182,7 @@ void Check_EE_LEE(const tPointFunction_EP<fpv>& S, fpv T, const fpv* coor, fpv* 
 //         t, coor -- point in time in space where derivatives should be calculated
 //         numcoor -- number of coordinates in use (not to waste time for 'z' derivatives in 2D)
 //         h       -- step for numerical differentiation
-//         MF      -- background field (rho, u, v, w, p). If MF==NULL, default vaules are used: 1, 0, 0, 0, 1/gamma
+//         MF      -- background field (rho, u, v, w, p). If MF==NULL, default values are used: 1, 0, 0, 0, 1/gamma
 //         nu, Pr, gamma -- equation parameters
 //         method  -- code of a formula for derivatives computation
 // Output: V       -- computed values (5 variables)
@@ -200,7 +198,7 @@ void CheckLNSE(const tPointFunction_EP<fpv>& S, fpv t, const fpv* coor, fpv* V, 
     if(S.Type() == FUNC_PULSATIONS_COMPLEX) n = 5; // we'll look on the real part only
     if(n!=5) crash("CheckLNSE error: wrong NumVars = %i", n);
 
-    tFixArray<fpv,5> f[7][7][7]; // stored values. Positions: {-3, -2, -1, 0, 1, 2, 3} at each direction
+    tFixBlock<fpv,5> f[7][7][7]; // stored values. Positions: {-3, -2, -1, 0, 1, 2, 3} at each direction
     for(int i=0; i<7; i++) for(int j=0; j<7; j++) for(int k=0; k<7; k++) for(int ivar=0; ivar<5; ivar++) MakeNaN(f[i][j][k][ivar]);
 
     // Compute the values in a neighborhood of the point given
@@ -214,7 +212,7 @@ void CheckLNSE(const tPointFunction_EP<fpv>& S, fpv t, const fpv* coor, fpv* V, 
         fpv buf[4] = {coor[0]+(i-3)*h, coor[1]+(j-3)*h, coor[2]+(k-3)*h};
         fpv val[N];
         S.PointValue(t, buf, val);
-        for(int ivar=0; ivar<5; ivar++) f[i][j][k].V[ivar] = val[ivar];
+        f[i][j][k] = val;
     }
 
     // Calculation of direct second derivatives
@@ -227,7 +225,7 @@ void CheckLNSE(const tPointFunction_EP<fpv>& S, fpv t, const fpv* coor, fpv* V, 
     static const fpv c_1_90 = fpv(1.0) / fpv(90.0);
     static const fpv c_49_18 = fpv(49.0) / fpv(18.0);
 
-    tFixArray<fpv,5> D2V[3][3]; // second order derivatives (symmetric matrix 3x3 of N-vectors)
+    tFixBlock<fpv,5> D2V[3][3]; // second order derivatives (symmetric matrix 3x3 of N-vectors)
     switch(method) {
     case 2:
         D2V[0][0] = f[4][3][3]-fpv(2.0)*f[3][3][3]+f[2][3][3];
@@ -251,7 +249,7 @@ void CheckLNSE(const tPointFunction_EP<fpv>& S, fpv t, const fpv* coor, fpv* V, 
     for(int icoor=1; icoor<3; icoor++) for(int jcoor=0; jcoor<icoor; jcoor++) {
         // Calculating of cross derivatives using 2-nd order formula on different stencils
         int pp[3]={3,3,3}, pm[3]={3,3,3}, mp[3]={3,3,3}, mm[3]={3,3,3}; 
-        tFixArray<fpv,5> D1, D2, D3;
+        tFixBlock<fpv,5> D1, D2, D3;
         {
             pp[icoor]++; pp[jcoor]++;
             pm[icoor]++; pm[jcoor]--;
@@ -295,7 +293,7 @@ void CheckLNSE(const tPointFunction_EP<fpv>& S, fpv t, const fpv* coor, fpv* V, 
 
     const fpv invh2 = 1.0 / (h*h);
     for(int i=0; i<3; i++) for(int j=0; j<3; j++) D2V[i][j] *= invh2;
-    tFixArray<fpv,5> L = D2V[0][0] + D2V[1][1] + D2V[2][2]; // Laplassian
+    tFixBlock<fpv,5> L = D2V[0][0] + D2V[1][1] + D2V[2][2]; // Laplassian
 
     // Now calculating the viscous & heat operator applied to the solution given using the derivatives computed above
     V[Var_U] -= nu*L[1] + c_1_3*nu*(D2V[0][0][1]+D2V[0][1][2]+D2V[0][2][3]);
@@ -363,9 +361,9 @@ void VerifyLEE_Gaussian2D(int NTests) {
             fpv eps = pow_to_const_int<sizeof(fpv)/8>(1e-3);
 
             fpv LEEerr[5];
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 2, eps, NULL, 1.4, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 2, eps, NULL, 1.4, 6);
             if(CheckErr(LEEerr, 5, warn_eps)) {
-                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 2, 0.1*eps, NULL, 1.4, 6);
+                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 2, 0.1*eps, NULL, 1.4, 6);
             }
             if(CheckErr(LEEerr, 5, warn_eps)) {
                 pprintf0("WARNING! (t = %f, r = %f)\n", double(t), double(r));
@@ -407,9 +405,9 @@ void VerifyLEE_IVP2D(int NTests) {
             fpv eps = pow_to_const_int<sizeof(fpv)/8>(1e-3);
 
             fpv LEEerr[5];
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 2, eps, MF, gamma, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 2, eps, MF, gamma, 6);
             if(CheckErr(LEEerr, 5, warn_eps)) {
-                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 2, 0.1*eps, MF, gamma, 6);
+                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 2, 0.1*eps, MF, gamma, 6);
             }
             if(CheckErr(LEEerr, 5, warn_eps)) {
                 pprintf0("WARNING! (t = %17.12f, r = %17.12f, phi = %10.6f)\n", double(t), double(r), double(phi));
@@ -466,9 +464,9 @@ void VerifyLEE_CornerPlanar(int NTests) {
             fpv warn_eps = pow_to_const_int<sizeof(fpv)/8>(1e-8) / MIN(r, 1.0);
 
             fpv LEEerr[5];
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 2, eps, NULL, gamma, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)(tPointFunction&)(S), t, c, LEEerr, 2, eps, NULL, gamma, 6);
             if(fabs(LEEerr[0]) > warn_eps || fabs(LEEerr[1]) > warn_eps || fabs(LEEerr[2]) > warn_eps) {
-                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 2, 0.1*eps, NULL, gamma, 6);
+                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 2, 0.1*eps, NULL, gamma, 6);
             }
             if(CheckErr(LEEerr, 5, warn_eps)) {
                 pprintf0("WARNING! (t = %17.12f, r = %17.12f, \n          phi = %17.12f, angle = %17.12f)\n", 
@@ -531,9 +529,9 @@ void VerifyLEE_Corner(int NTests) {
             fpv warn_eps = pow_to_const_int<sizeof(fpv)/8>(1e-8) / MIN(r, 1.0);
 
             fpv LEEerr[5];
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 2, eps, NULL, gamma, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 2, eps, NULL, gamma, 6);
             if(fabs(LEEerr[0]) > warn_eps || fabs(LEEerr[1]) > warn_eps || fabs(LEEerr[2]) > warn_eps) {
-                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 2, 0.1*eps, NULL, gamma, 6);
+                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 2, 0.1*eps, NULL, gamma, 6);
             }
             if(CheckErr(LEEerr, 5, warn_eps)) {
                 pprintf0("WARNING! (t = %17.12f, r = %17.12f, \n          phi = %17.12f, angle = %17.12f)\n", 
@@ -573,9 +571,9 @@ void VerifyLEE_Gaussian3D(int NTests) {
             double eps = sizeof(fpv)==8 ? 1e-2 : 3e-5;
 
             fpv LEEerr[5];
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, NULL, 1.4, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, NULL, 1.4, 6);
             if(fabs(LEEerr[0]) > warn_eps || fabs(LEEerr[1]) > warn_eps || fabs(LEEerr[2]) > warn_eps) {
-                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, 0.1*eps, NULL, 1.4, 6);
+                Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, 0.1*eps, NULL, 1.4, 6);
             }
             if(CheckErr(LEEerr, 5, warn_eps)) {
                 pprintf0("WARNING! (t = %f, r = %f)\n", double(t), double(r));
@@ -621,7 +619,7 @@ void VerifyLEE_Source1D(int NTests) {
             fpv eps = sizeof(fpv)==8 ? 1e-2 : 3e-5;
 
             fpv LEEerr[5];
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 1, eps, NULL, 1.4, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 1, eps, NULL, 1.4, 6);
             fpv source = S.SpaceForm(c) * S.TimeForm(t);
             LEEerr[Var_R] -= source;
             LEEerr[Var_P] -= source;
@@ -669,7 +667,7 @@ void VerifyLEE_Source2D(int NTests) {
             fpv eps = pow_to_const_int<sizeof(fpv)/8>(5e-3);
 
             fpv LEEerr[5];
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, NULL, 1.4, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, NULL, 1.4, 6);
             fpv source = S.SpaceForm(c) * sin(Pi2*S.Freq*t);
             LEEerr[Var_R] -= source;
             LEEerr[Var_P] -= source;
@@ -717,7 +715,7 @@ void VerifyLEE_Source3D(int NTests) {
             fpv eps = pow_to_const_int<sizeof(fpv)/8>(5e-3);
 
             fpv LEEerr[5];
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, NULL, 1.4, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, NULL, 1.4, 6);
             fpv source = S.SpaceForm(c) * S.TimeForm(t);
             LEEerr[Var_R] -= source;
             LEEerr[Var_P] -= source;
@@ -750,7 +748,7 @@ void VerifyLEE_RotatingDipole(int NTests) {
         fpv eps = pow_to_const_int<sizeof(fpv)/8>(5e-3);
 
         fpv LEEerr[5];
-        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, NULL, 1.4, 6);
+        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, NULL, 1.4, 6);
         if(CheckErr(LEEerr, 5, warn_eps)) {
             pprintf0("WARNING! (t = %25.15f, r = %25.15f, \n    phi = %25.15f)\n", double(t), double(r), double(phi));
             pprintf0("err: % 6.2e % 6.2e % 6.2e\n", double(LEEerr[0]), double(LEEerr[1]), double(LEEerr[2]));
@@ -793,14 +791,14 @@ void VerifyLEE_PointSource(int NTests) {
 
         fpv LEEerr[5];
         fpv eps = pow_to_const_int<sizeof(fpv)/8>((double)(1e-3 * (1.0 - S.FlowMach) * MIN(fpv(1.0),S.SoundVel) / S.Freq));
-        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, MF, gamma, 6);
+        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, MF, gamma, 6);
         if(CheckErr(LEEerr, 5, warn_eps)) {
             eps *= 10;
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, MF, gamma, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, MF, gamma, 6);
         }
         if(CheckErr(LEEerr, 5, warn_eps)) {
             eps *= 0.01;
-            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, MF, gamma, 6);
+            Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, MF, gamma, 6);
         }
         if(CheckErr(LEEerr, 5, warn_eps)) {
             pprintf0("WARNING! (t = %25.15f, r = %25.15f, \n    phi = %25.15f, theta = %25.15f)\n    FlowMach = %25.15f, SoundVel = %25.15f\n", 
@@ -819,7 +817,7 @@ void VerifyLEE_Coaxial(int NTests) {
         s_Coaxial S;
         S.FlowVel = double(rand()) / RAND_MAX;
         S.SoundVel = 0.2 + double(rand()) / RAND_MAX;
-        S.AsimuthalMode = 3; S.RadialMode = 4;
+        S.AzimuthalMode = 3; S.RadialMode = 4;
         S.rmin = 0.2; S.rmax = 2.;
         S.kz = GetPiNumber<fpv>() * (0.5 + double(rand()) / RAND_MAX);
         S.Ampl = 1.0; S.phase = 0.4; 
@@ -843,7 +841,7 @@ void VerifyLEE_Coaxial(int NTests) {
         fpv MF[5] = {1.0, 0.0, 0.0, S.FlowVel, SQR(S.SoundVel) / gamma};
 
         fpv LEEerr[5];
-        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, MF, gamma, 6);
+        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, MF, gamma, 6);
         if(CheckErr(LEEerr, 5, warn_eps)) {
             pprintf0("WARNING! (t = %f, r = %f)\n", double(t), double(r));
             pprintf0("err: % 6.2e % 6.2e % 6.2e % 6.2e % 6.2e\n", double(LEEerr[0]), double(LEEerr[1]), double(LEEerr[2]), double(LEEerr[3]), double(LEEerr[4]));
@@ -875,7 +873,7 @@ void VerifyLNSE_SinusVisc(int NTests) {
         fpv eps = pow_to_const_int<sizeof(fpv)/8>(3e-3);
 
         fpv LEEerr[5];
-        CheckLNSE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, LEEerr, 3, eps, NULL, S.mu, 1e50 /*no heat*/, gamma, 6);
+        CheckLNSE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, LEEerr, 3, eps, NULL, S.mu, 1e50 /*no heat*/, gamma, 6);
         if(CheckErr(LEEerr, 5, warn_eps)) {
             pprintf0("WARNING! \n");
             pprintf0("err: % 6.2e % 6.2e % 6.2e % 6.2e % 6.2e\n", double(LEEerr[0]), double(LEEerr[1]), double(LEEerr[2]), double(LEEerr[3]), double(LEEerr[4]));
@@ -989,7 +987,7 @@ void VerifyEE_Vortexes(int NTests) {
         c[2] = r * cos(phi);
 
         fpv EEerr[5];
-        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, EEerr, 3, eps, NULL, S.gam, 6);
+        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, EEerr, 3, eps, NULL, S.gam, 6);
         if(CheckErr(EEerr, 5, warn_eps)) {
             pprintf0("WARNING! (t = %f, r = %20.15f, R = %20.15f, \n   phi = %20.15f, gam = %20.15f vortex = %i)\n", double(t), double(r), double(S.R), double(phi), double(S.gam), i&3);
             pprintf0("err: % 6.2e % 6.2e % 6.2e % 6.2e % 6.2e\n", double(EEerr[0]), double(EEerr[1]), double(EEerr[2]), double(EEerr[3]), double(EEerr[4]));
@@ -1011,6 +1009,8 @@ void VerifyEE_SimpleWave(int NTests) {
         S.gam = 5./3.; // specific ratio
         S.SoundVel = sqrt(10.)/3.;
         S.FlowVel = -sqrt(10.);
+        S.a = pow(2.,C1_3) - 1.0;
+        S.log = 0;
 
         fpv eps = pow_to_const_int<sizeof(fpv)/8>(5e-5);
 
@@ -1023,7 +1023,7 @@ void VerifyEE_SimpleWave(int NTests) {
         t = 0.001;
 
         fpv EEerr[5];
-        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)S, t, c, EEerr, 3, eps, NULL, S.gam, 6);
+        Check_EE_LEE<fpv>((const tPointFunction_EP<fpv> &)(tPointFunction&)S, t, c, EEerr, 3, eps, NULL, S.gam, 6);
         if(CheckErr(EEerr, 5, warn_eps)) {
             pprintf0("WARNING! (t = %f, r = %20.15f, l = %20.15f)\n", double(t), double(r), double(S.l));
             pprintf0("err: % 6.2e % 6.2e % 6.2e % 6.2e % 6.2e\n", double(EEerr[0]), double(EEerr[1]), double(EEerr[2]), double(EEerr[3]), double(EEerr[4]));

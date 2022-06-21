@@ -1,4 +1,4 @@
-AsimuthalMode   4
+AzimuthalMode   4
 rmin            10
 rmax            110
 kz              2*PI/50

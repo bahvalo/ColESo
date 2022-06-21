@@ -12,7 +12,7 @@ Ymax          0.5           # for planar channel only: channel position
 
 # Solution parameters
 k          4*PI             # axial wave number
-#AsimuthalMode 8             # for cylindrical channel only: asimuthal mode
+#AzimuthalMode 8             # for cylindrical channel only: azimuthal mode
 RadialMode    1             # radial (for cylindrical channel) / transversal (for planar channel) mode
 ampl          1.0           # multiplicator
 phase         0.0           # phase (axial shift)

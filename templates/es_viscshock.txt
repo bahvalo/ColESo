@@ -11,7 +11,7 @@
 #UR	11 / 12
 #PR	19 / 12
 
-### The values above should satisfy Rankine - Hugoniot conditions and correspond to a shoch (not to a contact discontinuity)
+### The values above should satisfy Rankine - Hugoniot conditions and correspond to a shock (not to a contact discontinuity)
 #SteadyTest        # If nonzero, check is provided that the values 'L' and 'R' correspond to a steady (not moving) shock
 
 ### Equation parameters
@@ -19,6 +19,6 @@
 #Rey     3         # "Reynolds number": Rey = 1/nu if mode==0 and Rey = 1/mu if mode==1
 #Prandtl 0.75      # Prandtl number. Two variants are permitted: Pr=1e50 and Pr=0.75
 
-#mode    0        # mode==0: contant kinematic viscousity, mode==1: constant dynamic viscousity
+#mode    0        # mode==0: contant kinematic viscosity, mode==1: constant dynamic viscosity
 
 #AutodetectShockPosition   # Only to use with NOISEtte: autodetect shock position at each timestep

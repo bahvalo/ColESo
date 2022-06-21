@@ -68,11 +68,11 @@
  *
  */
 
-#include "personal.h"
+#include "base_config.h"
 #include "es_specfunc.h"
-#ifdef _NOISETTE
-    #include "lib_base.h"
-#endif
+//#ifdef _NOISETTE
+    #include "base_lib.h"
+//#endif
 #ifdef double
     #undef double
 #endif

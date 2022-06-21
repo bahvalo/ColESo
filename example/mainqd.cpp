@@ -1,5 +1,5 @@
 // Attention: to build this code, ColESo library should be compiled with 
-// EXTRAPRECISION_COLESO flag set in src/personal.h
+// EXTRAPRECISION_COLESO flag set in src/base_config.h
 #include "coleso.h"
 #include "extraprecision.h"
 

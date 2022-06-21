@@ -34,9 +34,18 @@
 			<Add option="-Wno-unknown-pragmas" />
 			<Add directory="../src" />
 		</Compiler>
+		<Unit filename="../src/base_config.h" />
+		<Unit filename="../src/base_const.h" />
+		<Unit filename="../src/base_containers.h" />
+		<Unit filename="../src/base_io.h" />
+		<Unit filename="../src/base_lib.h" />
+		<Unit filename="../src/base_macro.h" />
+		<Unit filename="../src/base_param.h" />
+		<Unit filename="../src/base_parser.cpp" />
+		<Unit filename="../src/base_parser.h" />
 		<Unit filename="../src/coleso.h" />
 		<Unit filename="../src/coleso_fortran.h" />
-		<Unit filename="../src/const.h" />
+		<Unit filename="../src/coleso_utils.cpp" />
 		<Unit filename="../src/es_aux.cpp" />
 		<Unit filename="../src/es_blasius.cpp" />
 		<Unit filename="../src/es_corner.cpp" />
@@ -58,11 +67,11 @@
 		<Unit filename="../src/es_visc_acoustics.cpp" />
 		<Unit filename="../src/es_vortex.cpp" />
 		<Unit filename="../src/extraprecision.h" />
+		<Unit filename="../src/gaussrule.h" />
 		<Unit filename="../src/geom_primitive.h" />
-		<Unit filename="../src/io_parser.cpp" />
-		<Unit filename="../src/parser.h" />
-		<Unit filename="../src/personal.h" />
+		<Unit filename="../src/imf_sfunction.cpp" />
 		<Unit filename="../src/pointfuncs.h" />
+		<Unit filename="../src/spaceform.h" />
 		<Unit filename="../test/test.cpp" />
 		<Extensions />
 	</Project>

@@ -493,7 +493,7 @@
        do i = -70, 50
            C(1) = i / 100d0; C(2) = 0d0; C(3) = 0d0
            call coleso_pointvalue(ID, 0d0, c, v1)
-           call coleso_pointvalue(ID, 0.1d0, c, v2)
+           call coleso_pointvalue(ID, 0.09d0, c, v2)
            write(1,*) C(1), V1(1), V1(5), V2(1), V2(5)
        enddo
        close(1)  

@@ -9,7 +9,7 @@ OUTDIR ?= ../bin
 
 TARGET = $(addprefix $(OUTDIR)/, coleso$(QDSUFF).a)
 
-SOURCES = $(wildcard es_*.cpp) io_parser.cpp
+SOURCES = $(wildcard *.cpp)
 BINOBJ = $(addprefix $(OUTDIR)/$(QDSUFF), $(patsubst %.cpp, %.o, $(SOURCES)))
 
 default: $(TARGET) ;

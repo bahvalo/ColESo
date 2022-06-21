@@ -1,6 +1,6 @@
 Aterm     0.1    # Amplitude
 Bterm    20      # Half-width
-Xterm   100      # Initial impluse position
+Xterm   100      # Initial impulse position
 gam       1.4    # Specific ratio
 DF_Coor 200.49   # Shock position
 

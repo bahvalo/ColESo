@@ -5,34 +5,31 @@
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
-#include "parser.h"
+#include "base_parser.h"
 #include "coleso.h"
 #include "geom_primitive.h"
 #include "es_specfunc.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 
 //======================================================================================================================
-// Считывание общих параметров для всех вихрей
+// Reading common parameters for all vortexes
 //======================================================================================================================
 void tVortexFunction::ReadParams(tFileBuffer& FB) {
     tParamManager PM;
-    // Центр вихря при t=0
+    // Center of the vortex at t=0
     PM.Request(r0[0], "X");
     PM.Request(r0[1], "Y");
     PM.Request(r0[2], "Z");
-    // Фоновый поток
+    // Background flow
     PM.Request(v0[0], "vx");
     PM.Request(v0[1], "vy");
     PM.Request(v0[2], "vz");
     PM.Request(gam, "gam");
     PM.Request(SoundVel, "SoundVel");
-    // Некоторым образом определяемое число Маха вихря
+    // Mach number of the vortex (somehow defined)
     PM.Request(Mach, "Mach");
-    // Радиус вихря
+    // Vortex radius (somehow defined)
     PM.Request(R, "R");
-    // Ось вихря (0 - X, 1 - Y, 2 - Z)
+    // Vortex axis (0 - X, 1 - Y, 2 - Z)
     PM.Request(axis, "axis");
     PM.ReadParamsFromBuffer(FB);
 }
@@ -40,7 +37,7 @@ void tVortexFunction::ReadParams(tFileBuffer& FB) {
 
 
 //======================================================================================================================
-// Проверка общих параметров
+// Check of common parameters
 //======================================================================================================================
 void tVortexFunction::Init() {
     if(IsNaN(Mach) || Mach < 0) crash("tVortexFunction::CheckParams: wrong Mach = %e", Mach);
@@ -48,12 +45,17 @@ void tVortexFunction::Init() {
     if(axis < 0 || axis > 2) crash("tVortexFunction::CheckParams: wrong axis %i", axis);
     if(IsNaN(r0[0])||IsNaN(r0[1])||IsNaN(r0[2])||IsNaN(v0[0])||IsNaN(v0[1])||IsNaN(v0[2]))
         crash("tVortexFunction::CheckParams: NaN detected");
+
+    // Check that the Mach number is not too high so the pressure at the vortex center is positive
+    // For this purpose, just calcluate it
+    double V[5];
+    PointValue(0.0, r0, V);
 }
 //======================================================================================================================
 
 
 //======================================================================================================================
-// Общая процедура для вычисления решения
+// Common subroutine for the calculation of physical variables
 //======================================================================================================================
 void tVortexFunction::PointValue(double t, const double* coord, double* V) const {
     int axis_x = (axis + 1) % 3;
@@ -74,7 +76,7 @@ void tVortexFunction::PointValue(double t, const double* coord, double* V) const
 
 
 //======================================================================================================================
-//  Вихрь с финитным профилем скорости
+//  Vortex with the finite support of the velocity field
 //======================================================================================================================
 
 //======================================================================================================================
@@ -118,7 +120,7 @@ void s_FiniteVortex::Profile(double r, double& rho, double& u_over_r, double& p)
         f*=sum;
     }
     double pfunc = 1.0 - (gam-1.0)*f;
-    if(pfunc < tiny) crash("s_FiniteVortex::PointValue error: P<0");
+    if(pfunc < tiny) crash("s_FiniteVortex: negative pressure");
     p = pow(pfunc, gam/(gam-1.0)) / gam;
     rho = pow(gam*p, 1.0/gam);
 }
@@ -128,18 +130,17 @@ void s_FiniteVortex::Profile(double r, double& rho, double& u_over_r, double& p)
 
 //======================================================================================================================
 // Vortex with u_phi(r) = Gamma * r / (2*Pi*(r^2 + R^2)), Gamma = 2*Pi*(SoundVel*Mach)*R
-// It is assumed that SoundVel = 1
 //======================================================================================================================
 
 //======================================================================================================================
 void s_Vortex_BG::Profile(double r, double& rho, double& u_over_r, double& p) const {
-    double Gamma = Pi2*Mach*R;
+    double Gamma = Pi2*SoundVel*Mach*R;
     u_over_r = Gamma / (Pi2*(r*r + R*R));
-    double g1g = (gam-1.0)/gam;
-    double buf = pow(1.0/gam, g1g) - g1g*pow(gam, 1.0/gam)*Gamma*Gamma/(8.0*PiNumber*PiNumber * (r*r+R*R));
-    if(buf<0) crash("s_Vortex_BG::PointValue internal error: buf = %e", buf);
-    p = pow(buf, gam/(gam-1.0));
-    rho = pow(gam*p, 1.0/gam);
+    double J = Gamma*Gamma/(8.0*PiNumber*PiNumber * (r*r+R*R));
+    double buf = 1 - (gam-1)*J / (SoundVel*SoundVel);
+    if(buf<0) crash("s_Vortex_BG: negative pressure");
+    p = pow(buf, gam/(gam-1.0)) * SoundVel*SoundVel/gam;
+    rho = pow(buf, 1./(gam-1.0));
 }
 //======================================================================================================================
 
@@ -160,6 +161,7 @@ void s_RankineVortex::Profile(double r, double& rho, double& u_over_r, double& p
         u_over_r = Mach*R/(r*r);
     }
     double buf = 1 - (gam-1)*J / (SoundVel*SoundVel);
+    if(buf<0) crash("s_RankineVortex: negative pressure");
     rho = pow(buf,1/(gam-1));
     p = pow(rho,gam) * SoundVel*SoundVel/gam;
 }

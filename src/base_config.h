@@ -7,7 +7,7 @@
 
 // Enable this to compile ColESo with dd and qd precision routines
 // (when building using a makefile, this flag is set automatically)
-#define EXTRAPRECISION_COLESO
+//#define EXTRAPRECISION_COLESO
 
 //======================================================================================================================
 //

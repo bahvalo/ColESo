@@ -408,7 +408,7 @@ int main(int argc, char** argv) {
         for(x = -0.7; x<=0.5000001; x+=0.01) {
             C[0]=x; C[1]=0.0; C[2]=0.0;
             coleso_pointvalue(ID,  0.0, C, V1);
-            coleso_pointvalue(ID,  0.1, C, V2);
+            coleso_pointvalue(ID,  0.09, C, V2);
             fprintf(out, "%25.15f %25.15f %25.15f %25.15f %25.15f\n", x, V1[0], V1[4], V2[0], V2[4]);
         }
         fclose(out);

@@ -1,9 +1,10 @@
 #pragma once
 #ifndef _COLESO_H
 #define _COLESO_H
-
-#include "pointfuncs.h"
+#include "base_const.h"
+#include "spaceform.h"
 #include "es_utils.h"
+#include "pointfuncs.h"
 #include <vector>
 #include <string>
 #include <math.h>
@@ -93,8 +94,8 @@ struct s_Planar : tPulsFunction { // abstract class - for PlanarGauss and Planar
     double RhoRef, URef[3], PRef, gam;
 // For channel: Rmax
     double Rmax;
-    s_Planar() {Dir[0] = 1.0; Dir[1] = Dir[2] = 0.0; gam = 1.4; RhoRef = 1.0;
-                                             URef[0] = URef[1] = URef[2] = 0.0; PRef = 1.0 / gam; Rmax = huge;}
+    s_Planar() { Aterm = 1.0; Xterm = Yterm = Zterm = 0.0; Dir[0] = 1.0; Dir[1] = Dir[2] = 0.0; gam = 1.4; 
+                 RhoRef = 1.0; URef[0] = URef[1] = URef[2] = 0.0; PRef = 1.0 / gam; Rmax = huge;}
     const char* filename() const OVERRIDE { return "es_planar.txt"; }
     void ReadParams(tFileBuffer& FB) OVERRIDE;
     void Init() OVERRIDE;
@@ -133,7 +134,7 @@ struct s_Coaxial : tComplexPulsFunction {
     DESCRIPTION("acoustic mode in cylinder or between coaxial cyl-s");
 //====================================================================================================================== 
     double FlowVel, SoundVel; // скорость потока и звука в канале
-    int AsimuthalMode, RadialMode; // asimuthal and radial modes
+    int AzimuthalMode, RadialMode; // azimuthal and radial modes
     double rmin, rmax, kz; // cylinder radii; axial wave number
     double Ampl; // амплитуда
     double phase; // фаза
@@ -141,7 +142,7 @@ struct s_Coaxial : tComplexPulsFunction {
 
     s_Coaxial() {
         rmin=1.0; rmax=2.0; kz=0.0; MakeNaN(kr); 
-        AsimuthalMode = 8; RadialMode=0; Ampl=1.0; phase=0.0; 
+        AzimuthalMode = 8; RadialMode=0; Ampl=1.0; phase=0.0; 
         SoundVel=1.0; FlowVel=0.0; 
         CoorAxis = 2;
     }
@@ -161,7 +162,7 @@ private:
 
 //======================================================================================================================
 struct s_SinusVisc : tPulsFunction {
-    DESCRIPTION("sinus wave with viscousity");
+    DESCRIPTION("sinus wave with viscosity");
 //======================================================================================================================
     double mu, gamma, Prandtl; // viscosity, specific ratio, Prandtl number
     double Ampl; // amplitude of acoustic mode
@@ -230,7 +231,7 @@ struct s_Cylinder : tPulsFunction {
     double Kmax;
 
 private:
-    std::vector<double> Coeff; // Pre-generated coeffitients
+    std::vector<double> Coeff; // Pre-generated coefficients
     tGaussIntegrator<double> GI;
 
 public:
@@ -419,7 +420,8 @@ struct s_PointSource : tPointFunction_EP<fpv>, tSpaceForm<fpv> {
     tFuncType Type() const OVERRIDE { return FUNC_PULSATIONS; } // поскольку наследуем напрямую tPointFunction_EP, указываем тип
     DESCRIPTION("point source in a uniform [unsteady] flow");
 //======================================================================================================================
-    fpv SoundVel, FlowMach; // скорость звука и скорость фонового потока (вдоль оси X)
+    fpv SoundVel, FlowMach; // sound speed and Mach number of the background flow
+    fpv FlowDirX, FlowDirY, FlowDirZ; // direction of the background flow (if present)
     fpv Ampl, Freq, Phase, tmin, tmax; // параметры сигнала. Freq - линейная частота
     int SignalType; // 1 : sin, 6 : sin^4
 
@@ -428,6 +430,7 @@ struct s_PointSource : tPointFunction_EP<fpv>, tSpaceForm<fpv> {
 
     s_PointSource() : tSpaceForm<fpv>() {
         SoundVel = 1.0; FlowMach = 0.0;
+        FlowDirX = 1.0; FlowDirY = FlowDirZ = 0.0;
         Ampl = 1.0; Freq = 1.0; Phase = 0.0; tmin = 0.0; tmax = 1.0;
         SignalType = 6; // (sin(2*pi*f*t))^4
         UseUnsteady = 0;
@@ -505,7 +508,7 @@ struct s_WaveInChannel : tPointFunction_EP<fpv> {
                   // (For 2D computations set CoorAxis=2, when using ZR system set CoorAxis=0)
     // solution parameters
     fpv k;        // axial wave number
-    int l;        // for cylindrical channel only: asimuthal mode
+    int l;        // for cylindrical channel only: azimuthal mode
     int kmode;    // radial (for cylindrical channel) / transversal (for planar channel) mode 
     fpv ReOmega, ImOmega; // complex frequency. If set, kmode is ignored
     fpv ampl;     // multiplicator
@@ -676,9 +679,8 @@ struct s_CurlFreeCylinder : tPhysFunction {
 //======================================================================================================================
     double X, Y, R; // Center coordinates of the cylinder and its radius
     double Gamma; // Circulation
-    int PCEmode; // Set rho=1 instead of constant entropy (for pseudo-compressible equations)
 
-    s_CurlFreeCylinder() { X = Y = 0.0; R = 0.5; Gamma = 0.0; PCEmode = 0; }
+    s_CurlFreeCylinder() { X = Y = 0.0; R = 0.5; Gamma = 0.0; }
     const char* filename() const OVERRIDE { return "es_curlfreecylinder.txt"; }
     void ReadParams(tFileBuffer& FB) OVERRIDE;
     void PointValue(double t, const double* coor, double* V) const OVERRIDE;
@@ -687,13 +689,12 @@ struct s_CurlFreeCylinder : tPhysFunction {
 //======================================================================================================================
 
 //======================================================================================================================
-struct s_PotentialSphere : tPhysFunction { // Потенциальное обтекание сферы
+struct s_PotentialSphere : tPhysFunction { // Potential flow around a sphere
     DESCRIPTION("potential flow around a sphere");
 //======================================================================================================================
-    double X, Y, Z, R; // Координаты и радиус сферы
-    int PCEmode; // pseudo-compressible equations
+    double X, Y, Z, R; // Center coordinates of the sphere and its radius 
 
-    s_PotentialSphere() { X = Y = Z = 0.0; R = 0.5; PCEmode = 0; }
+    s_PotentialSphere() { X = Y = Z = 0.0; R = 0.5; }
     const char* filename() const OVERRIDE { return "es_potentialsphere.txt"; }
     void PointValue(double t, const double* coor, double* V) const OVERRIDE;
     void ReadParams(tFileBuffer& FB) OVERRIDE;
@@ -703,22 +704,24 @@ struct s_PotentialSphere : tPhysFunction { // Потенциальное обт�
 
 
 //======================================================================================================================
-struct s_Couette : tPhysFunction { // Течение Куэтта между двумя параллельными плоскостями
+struct s_Couette : tPhysFunction { // Couette flow between parallel plates
     DESCRIPTION("Couette flow between two plates");
-// Предполагается, что направление скорости по Y, а переменные меняются по X
+    // Physical variables vary in X, flow direction is Y
 //======================================================================================================================
-    double xL, xR; // Координаты пластин
-    double vL, vR; // Скорости пластин
-    double tL, tR; // Температура стенок (для изотермических ГУ)
-    double pressure; // Давление
-    int condL, condR; // Условия на стенках: 0 -- адиабатическое, 1 -- изотермическое
-    int ViscType;  // 0: mu=const; 1: mu=mu0/sqrt(T); 2: mu=mu0*T
+    double xL, xR; // Plates coordinates
+    double vL, vR; // Plates velocities
+    double tL, tR; // Plates temperature (for isothermal b.c.)
+    double pressure; // Pressure (it is constant over the domain)
+    int condL, condR; // Boundary conditions at plates: 0 -- adiabatic, 1 -- isothermal
+    int ViscType;  // 0: mu=const; 1: mu=mu0/sqrt(T); 2: mu=mu0*T; 3: mu=mu0*sqrt(T); 4: Sutherland law
+    double TSutherland; // Constant in the Sutherland law
     #ifdef _NOISETTE
         int AutodetectPressure;
     #endif
 
     s_Couette() { 
-        xL=-0.5; xR=0.5; condL=0; condR=1; gam=1.4; Pr=1.0; vL=0.0; vR=1.0; tL=tR=1.0/gam; ViscType=0; MakeNaN(pressure);
+        xL=-0.5; xR=0.5; condL=0; condR=1; gam=1.4; Pr=1.0; vL=0.0; vR=1.0; tL=tR=1.0/gam; ViscType=0; 
+        MakeNaN(pressure); MakeNaN(TSutherland);
         #ifdef _NOISETTE
             AutodetectPressure=0; 
         #endif
@@ -734,9 +737,9 @@ struct s_Couette : tPhysFunction { // Течение Куэтта между д�
 //======================================================================================================================
 struct s_ViscSphere : tPhysFunction {
     DESCRIPTION("viscous uncompressible flow around sphere");
-// Вязкое несжимаемое обтекание сферы при Re << 1, r << R/Re (см. Ландау, Лифшиц, гидродинамика)
+    // Viscous incompressible flow around a sphere with Re << 1, r << R/Re (see Landau, Lifshitz, hydrodynamics)
 //======================================================================================================================
-    double R; // радиус сферы
+    double R; // Sphere radius
     s_ViscSphere() { R = 0.5; }
     void ReadParams(tFileBuffer& FB) OVERRIDE;
     void PointValue(double t, const double* coor, double* V) const;
@@ -790,7 +793,6 @@ struct s_Vortex_BG : tVortexFunction {
     DESCRIPTION("Bosnyakov - Gadjiev vortex");
 //======================================================================================================================
     const char* filename() const OVERRIDE { return "es_vortex_bg.txt"; }
-    void Init() { SoundVel = 1.0; }
     void Profile(double r, double& rho, double& u_over_r, double& p) const OVERRIDE;
 };
 //======================================================================================================================
@@ -813,16 +815,21 @@ struct s_FiniteVortex : tVortexFunction {
 
 //======================================================================================================================
 struct s_SimpleWave : tPhysFunction {
-    DESCRIPTION("simple wave (preprint 2013-53 by Ladonkina et al.)");
+    DESCRIPTION("simple wave");
     // Attention! The solution is valid until the shock occurs
 //======================================================================================================================
-    double l, x0, sign_FlowVel;
-    s_SimpleWave() { x0 = 0.0; l = 0.2; sign_FlowVel = 1.0; }
+protected:
+    double shock_formation_time;
+public:
+    double a, l, x0, sign_FlowVel;
+    int log;
+    s_SimpleWave() { x0 = 0.0; l = 0.2; a = 1.0; sign_FlowVel = 1.0; shock_formation_time = 0.0; log = 1; }
 
     void Init(void) OVERRIDE;
     const char* filename() const OVERRIDE { return "es_simplewave.txt"; }
     void ReadParams(tFileBuffer& FB) OVERRIDE;
     void PointValue(double t, const double* coor, double* V) const;
+    inline double get_shock_formation_time() { return shock_formation_time; }
 };
 //======================================================================================================================
 
@@ -837,10 +844,10 @@ struct s_ConcCyl : tPointFunction {
     double RIn, ROut; // cylinder radii
     double OmegaIn, OmegaOut; // angular velocities of cylinders
     double Pr, gam; // Prandtl number and the specific radio
-    double Twall; // Wall temperature
+    double Twall; // temperature of the outer cylinder
     int CoorAxis; // axis direction: 0 - X, 1 - Y, 2 - Z. In NOISEtte, use Coor_Z for 2D and Coor_X for Coor_X
 
-    s_ConcCyl() { X[0]=X[1]=X[2]=0.0; RIn=1.0; ROut=2.0; OmegaIn=OmegaOut=0.0; Pr=1.0; gam=1.4; CoorAxis=2; }
+    s_ConcCyl() { X[0]=X[1]=X[2]=0.0; RIn=1.0; ROut=2.0; OmegaIn=OmegaOut=0.0; Pr=1.0; gam=1.4; CoorAxis=2; Twall=1.0; }
     tFuncType Type() const { return FUNC_TEMPVEL; }
     const char* filename() const OVERRIDE { return "es_conccyl.txt"; }
     void ReadParams(tFileBuffer& FB) OVERRIDE;
@@ -854,7 +861,7 @@ struct s_ConcCyl : tPointFunction {
 struct s_Blasius : tPhysFunction {
     DESCRIPTION("solution of Blasius equation");
 //======================================================================================================================
-    s_Blasius() { FlowVel=1.0; SoundVel = 1e10; Rey=1.0; }
+    s_Blasius() { FlowVel=1.0; SoundVel = 1e10; Rey=1.0; MakeNaN(d_eta); }
  
     void ReadParams(tFileBuffer& FB) OVERRIDE;
     const char* filename() const OVERRIDE { return "es_blasius.txt"; }
@@ -869,43 +876,6 @@ public:
     inline void GetData(std::vector<double>*& pUV0, std::vector<double>*& pUV1, double*& pd_eta) {
         pUV0 = &UV0; pUV1 = &UV1; pd_eta = &d_eta;
     }
-};
-//======================================================================================================================
-
-//======================================================================================================================
-struct s_comprBlasius : tPhysFunction {
-    DESCRIPTION("compressible modification of Blasius solution");
-// (see Keldysh Intitute Preprint №15 1990)
-//======================================================================================================================
-    int mu_type;      // type of viscosity ( 0 = power law; 1 = Sutherland law )
-    double ps;        // parameter of power law
-    double sat;       // parameter of Sutherland law
-
-    // BC parameters
-    int bc_type;      // type of BC for h  ( 0 = adiabatic; 1 = isothermic )
-    double temp_wall; // temperature value
-
-    // parameters for calculation selfsimilar flow
-    double L_sim;     //  mesh size 
-    int N_sim;        //  number of intervals 
-
-    // parameters for iterative procedure
-    double eps_rel;   // relative accuracy
-    double eps_abs;   // absolute accuracy
-    int Iter_max;     // max. number of iterations
-
-    s_comprBlasius() : mu_type(0), ps(0.5), sat(0.0), bc_type(0), temp_wall(2.),
-        L_sim(5.), N_sim(1000), eps_rel(1e-7), eps_abs(1e-8), Iter_max(100) { FlowVel=SoundVel=1.0; gam=1.4; Pr=1.0; }
- 
-    void ReadParams(tFileBuffer& FB) OVERRIDE;
-    const char* filename() const OVERRIDE { return "es_comprblasius.txt"; }
-    void Init() OVERRIDE;
-    void PointValue(double t, const double* coor, double* V) const OVERRIDE;
-
-    int DumpTable(const char* fname = NULL) const;
-
-private:
-    std::vector<double> table_KSIUVT;
 };
 //======================================================================================================================
 

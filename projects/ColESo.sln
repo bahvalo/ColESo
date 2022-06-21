@@ -3,14 +3,24 @@ Microsoft Visual Studio Solution File, Format Version 10.00
 # Visual Studio 2008
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Include", "Include", "{BCDE2DE4-BA49-425A-86D2-F6DCE7E33D49}"
 	ProjectSection(SolutionItems) = preProject
-		..\src\const.h = ..\src\const.h
+		..\src\base_config.h = ..\src\base_config.h
+		..\src\base_const.h = ..\src\base_const.h
+		..\src\base_containers.h = ..\src\base_containers.h
+		..\src\base_io.h = ..\src\base_io.h
+		..\src\base_lib.h = ..\src\base_lib.h
+		..\src\base_macro.h = ..\src\base_macro.h
+		..\src\base_param.h = ..\src\base_param.h
+		..\src\base_parser.h = ..\src\base_parser.h
+		..\src\coleso.h = ..\src\coleso.h
+		..\src\coleso_fortran.h = ..\src\coleso_fortran.h
+		..\src\es_jacobi_rule.hpp = ..\src\es_jacobi_rule.hpp
+		..\src\es_specfunc.h = ..\src\es_specfunc.h
 		..\src\es_utils.h = ..\src\es_utils.h
 		..\src\extraprecision.h = ..\src\extraprecision.h
+		..\src\gaussrule.h = ..\src\gaussrule.h
 		..\src\geom_primitive.h = ..\src\geom_primitive.h
-		..\src\parser.h = ..\src\parser.h
-		..\src\personal.h = ..\src\personal.h
 		..\src\pointfuncs.h = ..\src\pointfuncs.h
-		..\src\coleso.h = ..\src\coleso.h
+		..\src\spaceform.h = ..\src\spaceform.h
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ColESo", "ColESo.vcproj", "{61A4E54A-5339-4FA9-9950-5D8A6E7EBCFF}"

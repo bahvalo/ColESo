@@ -233,7 +233,7 @@ fpv class_matrix ( int kind, int m, fpv alpha, fpv beta, fpv* aj, fpv* bj) {
 //
 //    It has been modified to produce the product Q' * Z, where Z is an input 
 //    vector and Q is the orthogonal matrix diagonalizing the input matrix.  
-//    The changes consist (essentialy) of applying the orthogonal transformations
+//    The changes consist (essentially) of applying the orthogonal transformations
 //    directly to Z as they are generated.
 //
 //  Licensing:

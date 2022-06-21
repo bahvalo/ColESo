@@ -5,13 +5,10 @@
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
-#include "parser.h"
+#include "base_parser.h"
 #include "geom_primitive.h" 
 #include "coleso.h"
 #include "es_specfunc.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h"
 #endif
@@ -26,11 +23,11 @@
 //======================================================================================================================
 template<typename fpv>
 void s_Gaussian2D<fpv>::ReadParams(tFileBuffer& FB) {
-    // Считывание параметров импульса
+    // Reading pulse parameters
     tSpaceForm<fpv>::Read(FB, true /* allow periodics */);
 
     tParamManager PM;
-    // Скорость фонового потока
+    // Background flow velocity
     PM.Request(FlowVelX, "FlowVelX");
     PM.Request(FlowVelY, "FlowVelY");
     PM.ReadParamsFromBuffer(FB);
@@ -42,19 +39,19 @@ template<typename fpv>
 void s_Gaussian2D<fpv>::Init(void){
     tSpaceForm<fpv>::Init();
     if(tSpaceForm<fpv>::Form!=tSpaceForm<fpv>::FORM_GAUSSIAN) crash("s_Gaussian2D: non-Gaussian form");
-    GI.Init(); // инициализируем гауссовы квадратуры
+    GI.Init(); // init of Gaussian quadrature rules
 }
 //======================================================================================================================
 
 
 //======================================================================================================================
-// Вычисление решения при помощи непосредственного интегрирования выражения, полученного методом разделения переменных
+// Computation of the solution by the direct integration of what is given by the Fourier transformation
 //======================================================================================================================
 template<typename fpv> 
-tFixArray<fpv,2> s_Gaussian2D_func(fpv omega, void* args) {
+tFixBlock<fpv,2> s_Gaussian2D_func(fpv omega, void* args) {
     const fpv& omegar = omega*((fpv*)args)[0];
     const fpv& omegat = omega*((fpv*)args)[1];
-    tFixArray<fpv,2> f;
+    tFixBlock<fpv,2> f;
     f[0] = omega * BesselJ0(omegar) * cos(omegat);
     f[1] = omega * BesselJ1(omegar) * sin(omegat);
     return f;
@@ -64,7 +61,7 @@ template<typename fpv>
 void s_Gaussian2D<fpv>::CalcDirect(fpv t, fpv r, fpv& p, fpv& ur) const {
     fpv mult = sqrt(fpv(2.0)*GetLn2<fpv>()) * tSpaceForm<fpv>::InvBTerm;
     fpv args[2] = {r*mult, t*mult};
-    tFixArray<fpv,2> f = GI.Integrate(0.0, 1e50, 1.0, 0.0, 0, 0, 1.0, MAX(args[0],args[1]), &s_Gaussian2D_func<fpv>, (void*)args);
+    tFixBlock<fpv,2> f = GI.Integrate(0.0, 1e50, 1.0, 0.0, 0, 0, 1.0, MAX(args[0],args[1]), &s_Gaussian2D_func<fpv>, (void*)args);
     p = f[0];
     ur = f[1];
 }
@@ -72,10 +69,10 @@ void s_Gaussian2D<fpv>::CalcDirect(fpv t, fpv r, fpv& p, fpv& ur) const {
 
 
 //======================================================================================================================
-// Вычисление решения при помощи равенства Парсеваля для преобразования Бесселя - Фурье
+// Computation of the solution using the Parseval identity for the Bessel-Fourier transformation
 //======================================================================================================================
 template<typename fpv> 
-tFixArray<fpv,3> s_Gaussian2D_funcBF(fpv xi, void* args) {
+tFixBlock<fpv,3> s_Gaussian2D_funcBF(fpv xi, void* args) {
     const fpv& r = ((fpv*)args)[0];
     const fpv& t = ((fpv*)args)[1];
     const fpv xx = 1.0 - xi;
@@ -83,7 +80,7 @@ tFixArray<fpv,3> s_Gaussian2D_funcBF(fpv xi, void* args) {
     BesselI<fpv>(r*t*xx, 2, get_eps<fpv>()*100.0, false, I); // I0(x)*exp(-x), I1(x)*exp(-x)
     const fpv mult = xx / sqrt(1.0 + xx);
     I[0] *= mult; I[1] *= mult;
-    tFixArray<fpv,3> f;
+    tFixBlock<fpv,3> f;
     f[0] = I[0];       // J_{0,1}
     f[1] = I[1]*xx;    // J_{1,2}
     f[2] = I[0]*xx*xx; // J_{0,3}
@@ -97,7 +94,7 @@ void s_Gaussian2D<fpv>::CalcViaBesselFourier(fpv t, fpv r, fpv& p, fpv& ur) cons
     r *= mult; t *= mult;
     fpv args[2] = {r, t};
     fpv q = MAX(MAX(fpv(1.0), r), r*t);
-    tFixArray<fpv,3> f = GI.Integrate(0.0, 1.0, t, 1.0-r/t, 0, 1, 1.0, q, &s_Gaussian2D_funcBF<fpv>, (void*)args);
+    tFixBlock<fpv,3> f = GI.Integrate(0.0, 1.0, t, 1.0-r/t, 0, 1, 1.0, q, &s_Gaussian2D_funcBF<fpv>, (void*)args);
     p  = f[0] - t*t*f[2] + r*t*f[1];
     ur = - t*t*f[1] + r*t*f[0];
 }
@@ -105,11 +102,11 @@ void s_Gaussian2D<fpv>::CalcViaBesselFourier(fpv t, fpv r, fpv& p, fpv& ur) cons
 
 
 //======================================================================================================================
-// Вычисление решения при помощи равенства Парсеваля для преобразования Фурье
+// Computation of the solution using the Parseval identity for the Fourier transformation
 //======================================================================================================================
 template<typename fpv> 
-tFixArray<fpv,2> s_Gaussian2D_funcF(fpv xi, void* /*args*/) {
-    tFixArray<fpv,2> f;
+tFixBlock<fpv,2> s_Gaussian2D_funcF(fpv xi, void* /*args*/) {
+    tFixBlock<fpv,2> f;
     f[0] = 1./sqrt(2.+xi);
     f[1] = -f[0]*(1.+xi);
     return f;
@@ -121,8 +118,8 @@ void s_Gaussian2D<fpv>::CalcViaFourier(fpv t, fpv r, fpv& p, fpv& ur) const {
     t *= mult;
     if(r < 1e-10) crash("CalcViaFourier error: r is too small");
     fpv q = MAX(fpv(0.5), r);
-    tFixArray<fpv,2> f = GI.Integrate(0.0, 1e50, r, t/r-1.0, 1, 1, sqrt(t/r), q, &s_Gaussian2D_funcF<fpv>, NULL);
-    tFixArray<fpv,2> g = GI.Integrate(0.0, 1e50, r, -t/r-1.0, 1, 1, sqrt(t/r), q, &s_Gaussian2D_funcF<fpv>, NULL);
+    tFixBlock<fpv,2> f = GI.Integrate(0.0, 1e50, r, t/r-1.0, 1, 1, sqrt(t/r), q, &s_Gaussian2D_funcF<fpv>, NULL);
+    tFixBlock<fpv,2> g = GI.Integrate(0.0, 1e50, r, -t/r-1.0, 1, 1, sqrt(t/r), q, &s_Gaussian2D_funcF<fpv>, NULL);
     mult = r / sqrt(GetPiNumber2<fpv>());
     p  = (f[0]+g[0]) * mult;
     ur = (-f[1]+g[1]) * mult;
@@ -141,19 +138,19 @@ void s_Gaussian2D<fpv>::PointValue(fpv t, const fpv* coord, fpv* uex) const{
         if(tSpaceForm<fpv>::Checkerboard) if((iPerX+iPerY)&1) continue;
         if(fabs(tSpaceForm<fpv>::PerX) > 0.5*huge && iPerX) continue;
         if(fabs(tSpaceForm<fpv>::PerY) > 0.5*huge && iPerY) continue;
-// Определение координат с учётом сноса потоком и периодических ГУ
+        // Coordinates, taking into account the background flow and periodical b.c.
         fpv x = coord[0] - tSpaceForm<fpv>::r0[0] - FlowVelX*t + tSpaceForm<fpv>::PerX * iPerX;
         fpv y = coord[1] - tSpaceForm<fpv>::r0[1] - FlowVelY*t + tSpaceForm<fpv>::PerY * iPerY;
         fpv r = sqrt(x*x+y*y);
 
         fpv p, ur;
-        if(t < tiny) { // Вычисление решения разложением в ряд вблизи t=0
+        if(t < tiny) { // Calculating the solution using the Taylor expansion at t=0
             fpv alpha = - GetLn2<fpv>() * tSpaceForm<fpv>::InvBTerm * tSpaceForm<fpv>::InvBTerm;
             fpv f0 = exp(alpha*r*r); // значение
             p = f0; ur = 0.0;
             if(t > 0.0) {
-                fpv f1_r = 2.0*alpha*f0; // 1-я производная, делённая на l
-                fpv f2 = 2.0*alpha*(1.0 + 2.0*alpha*r)*f0; // 2-я производная
+                fpv f1_r = 2.0*alpha*f0; // first derivative divided by l
+                fpv f2 = 2.0*alpha*(1.0 + 2.0*alpha*r)*f0; // second derivative
                 p += 0.5*t*t*(f2 + f1_r);
                 ur = - t * f1_r * r;
             }
@@ -173,7 +170,7 @@ void s_Gaussian2D<fpv>::PointValue(fpv t, const fpv* coord, fpv* uex) const{
 //======================================================================================================================
 
 
-// Сообщаем компилятору о желании иметь функции нужных нам типов
+// Template classes instantiation
 template struct s_Gaussian2D<NativeDouble>;
 #ifdef EXTRAPRECISION_COLESO
 template struct s_Gaussian2D<dd_real>;
@@ -191,11 +188,11 @@ template struct s_Gaussian2D<qd_real>;
 
 //======================================================================================================================
 void s_Gaussian3D::ReadParams(tFileBuffer& FB) {
-    // Считывание параметров импульса
+    // Reading the pulse parameters
     tSpaceForm<double>::Read(FB, true /* allow periodics */);
 
     tParamManager PM;
-    // Скорость фонового потока
+    // Background flow velocity
     PM.Request(FlowVelX, "FlowVelX");
     PM.Request(FlowVelY, "FlowVelY");
     PM.Request(FlowVelZ, "FlowVelZ");
@@ -212,10 +209,10 @@ void s_Gaussian3D::Init(void){
 
 
 //======================================================================================================================
-// Накопление от одного экземпляра импульса
+// Increment from a single pulse
 //======================================================================================================================
 void s_Gaussian3D::CalcValues(double t, double x, double y, double z, double* uex) const {
-    // обезразмеривание
+    // non-dimentionalizing
     const double qqq = sqrt(2.*CLN2);
     double mult = qqq * InvBTerm; 
     t *= mult; x *= mult; y *= mult; z *= mult;
@@ -301,12 +298,12 @@ void s_Gaussian3D::PointValue(double T, const double* coord, double* uex) const 
 // *********************************************************************************************************************
 // *****                                                                                                           *****
 // *****                         Entropy and vorticity perturbation with Gaussian profile                          *****
+// *****                   (the solution is transported by a background flow without evolution)                    *****
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
 //======================================================================================================================
 void s_EntropyVortex::ReadParams(tFileBuffer& FB) {
-//======================================================================================================================
     tParamManager PM;
     PM.Request(PerX, "PerX");
     PM.Request(PerY, "PerY");
@@ -324,7 +321,6 @@ void s_EntropyVortex::ReadParams(tFileBuffer& FB) {
 
 //======================================================================================================================
 void s_EntropyVortex::PointValue(double t, const double* coor, double* V) const{
-//======================================================================================================================
     double x = coor[0] - (FlowVelX * t) - Xterm;
     double y = coor[1] - (FlowVelY * t) - Yterm;
     double alpha = log(2.0) / SQR(Bterm);

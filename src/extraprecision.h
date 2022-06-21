@@ -6,9 +6,10 @@
 #ifndef EXTRAPRECISION_HEADER
 #define EXTRAPRECISION_HEADER
 
-#include "personal.h"
-#include "const.h" // extraprecision.h contains specifications of the templates declared in const.h
+#include "base_config.h"
+#include "base_const.h" // extraprecision.h contains specifications of the templates declared in base_const.h
 #include <stdarg.h>
+#include <string.h>
 using namespace std;
 
 // Check that QD library is available

@@ -24,16 +24,12 @@ Launching SinusVisc (1000 tests)
 Launching Coaxial (1000 tests)
 Launching PointSource (1000 tests)
 Launching WaveInChannel (1 tests)
-omega(initial) = 7.309192e+00 0.000000e+00
-Try mu = 2.0000000e-02 ...   om = 4.7198029869716e+00 1.2102271402504e+00
-Try mu = 4.0000000e-02 ...   om = 4.1554746219162e+00 2.0418673360030e+00
-Try mu = 6.0000000e-02 ...   om = 3.4622153410980e+00 2.6682099599570e+00
-Try mu = 8.0000000e-02 ...   om = 2.6905801232803e+00 3.0865583831043e+00
-Try mu = 1.0000000e-01 ...   om = 1.8360718874129e+00 3.3507696206259e+00
-s_WaveInChannel: omega =  1.83607188741294e+00 + i *  3.35076962062595e+00
-s_WaveInChannel: kap_v =  3.79102398866465e+00 + i * -2.42160415352539e+00
-s_WaveInChannel: kap_+ =  2.64885201857360e+00 + i *  5.12853134782813e+00
-s_WaveInChannel: kap_- =  4.06818917582639e+00 + i * -2.67699792588476e+00
+omega(initial) = 1.411552e+01 0.000000e+00
+Try mu = 1.0000000e-05 ...   om = 1.4106589965647e+01 1.0653498678373e-02
+s_WaveInChannel: omega =  1.41065899656469e+01 + i *  1.06534986783733e-02
+s_WaveInChannel: kap_v =  8.40156160697583e+02 + i * -8.39521902329097e+02
+s_WaveInChannel: kap_+ =  1.41065922355923e+01 + i *  8.92886801232043e-03
+s_WaveInChannel: kap_- =  8.40148270540398e+02 + i * -8.39529808523792e+02
 Launching Vortexes (100000 tests)
 Launching SimpleWave (5000 tests)
 

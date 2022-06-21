@@ -8,11 +8,8 @@
 // *********************************************************************************************************************
 
 #include "coleso.h"
-#include "parser.h"
+#include "base_parser.h"
 #include "geom_primitive.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h" 
 #endif
@@ -20,7 +17,7 @@
 #include <cstdlib>
 
 //======================================================================================================================
-// Считывание параметров
+// Reading the parameters
 //======================================================================================================================
 template<typename fpv>
 void s_PointSource<fpv>::ReadParams(tFileBuffer& FB){
@@ -44,22 +41,30 @@ void s_PointSource<fpv>::ReadParams(tFileBuffer& FB){
 }
 
 //======================================================================================================================
-// Проверка параметров
+// Check the parameters
 //======================================================================================================================
 template<typename fpv>
 void s_PointSource<fpv>::Init() {
     if(SignalType!=1 && SignalType!=6) crash("s_PointSource::Init error: wrong SignalType");
-    // tSpaceForm<double>::Init(); -- не вызываем! Наоборот, нам нужна L1-норма от формы импульса
+    // tSpaceForm<double>::Init(); -- do not call! In reverse, we need L1-norm of the pulse form
     if(!this->NormalizeForm) { this->Aterm *= tSpaceForm<fpv>::AmpliduteLinf2L1(this->Bterm); this->NormalizeForm=1; }
+    if(FlowMach > 1e-50) {
+        fpv FlowDirAbs = sqrt(FlowDirX*FlowDirX + FlowDirY*FlowDirY + FlowDirZ*FlowDirZ);
+        if(FlowDirAbs < 1e-100) crash("FlowMach is nonzero but flow direction vector is zero");
+        FlowDirX /= FlowDirAbs;
+        FlowDirY /= FlowDirAbs;
+        FlowDirZ /= FlowDirAbs;
+    }
+    else { FlowDirX = 1.0; FlowDirY = FlowDirZ = 0.0; }
 }
 
 //======================================================================================================================
-// Определение времени запаздывания и радиуса эмиссии
-// Вход: время и координаты наблюдателя относительно источника
+// Find the delay time and the emission radius
+// Input: time and observer coordinates relative to the source
 //======================================================================================================================
 template<typename fpv>
 fpv s_PointSource<fpv>::FindSourceTime(fpv time, fpv r0x, fpv r0y, fpv* re) const {
-    // Для покоящегося источника в равномерном потоке
+    // For a steady source in a uniform flow
     if(!UseUnsteady) {
         fpv X2 = r0x*r0x+r0y*r0y;
         fpv SQ = sqrt(SQR(r0x*FlowMach) + (1.-FlowMach*FlowMach)*X2);
@@ -69,8 +74,8 @@ fpv s_PointSource<fpv>::FindSourceTime(fpv time, fpv r0x, fpv r0y, fpv* re) cons
         return time + tau;
     }
 
-    // Для источника, двигающегося с переменной скоростью
-    // Начальное приближение
+    // For a source with a variable velocity
+    // Initial guess
     const s_PointSource* S = this;
     fpv Ufreq = S->UnstFreq / SoundVel;
     fpv Uampl = S->UnstAmpl / SoundVel;
@@ -103,12 +108,12 @@ fpv s_PointSource<fpv>::FindSourceTime(fpv time, fpv r0x, fpv r0y, fpv* re) cons
 
 
 //======================================================================================================================
-// Решение волнового уравнения для задачи с движущимся по закону x(t) точечным источником
-// Источник в волновом уравнении: функция SourceFunction(t)*Dirac(r - x(t))
-// Скорость звука равна 1
-// Требуется найти значение переменной в заданный момент времени в заданной точке
-// Вход:  time - момент наблюдения
-//        R    - двумерный вектор (z, sqrt(x^2+y^2)) из источника к наблюдателю в момент наблюдения
+// Solving the wave equation for a problem with a source moving with x(t)
+// Source in the wave equation: SourceFunction(t)*Dirac(r - x(t))
+// Sound speed is equal to 1
+// Goal: to find the value of the variable at a time moment given at a point given
+// Input: time - observing time
+//        R    - 2D vector (z, sqrt(x^2+y^2)) from the source to the observer at the observing time
 // Input: diff - 0 for function, 1 for X derivative, 2 for radial deriv. in cylindrical coords,
 //             - 3 for time deriv. at steady system (with constant R),
 //             - 4 for time deriv. at flux system (with constant R-Mt)
@@ -118,21 +123,21 @@ fpv s_PointSource<fpv>::monopole(fpv* R, fpv time, int diff) const {
     const fpv _Pi2 = GetPiNumber2<fpv>();
     fpv freq  = Freq / SoundVel;
  
-    // Вычислим момент эмиссии и положение источника относительно наблюдателя в этот момент
+    // Get the emission time moment and the source position (relative to the observer) at that time moment
     fpv r[2];
     fpv t_star = FindSourceTime(time, R[0], R[1], r);
     fpv absr = sqrt(r[0]*r[0]+r[1]*r[1]);
     {
-        // На всякий случай проверяем, что уравнение решено правильно
+        // Just for a case, check that the equation was solved properly
         fpv TT = time - absr;
         if(fabs(TT-t_star) > 1e-8*(fabs(TT)+fabs(t_star)+1.0))
             crash("s_PointSource::monopole: internal error: TT = %25.15e, t=%25.15e", double(TT), double(t_star));
     }
 
-    // Вычислим функцию источника и её производную в момент эмиссии t* = time - |r*|
+    // Calculate the source function and its derivative at the emission time moment (t* = time - |r*|)
     fpv sf = 0.0, dsf = 0.0;
 
-    if(t_star >= tmin && t_star <= tmax) {
+    if(t_star >= tmin*SoundVel && t_star <= tmax*SoundVel) {
         switch(SignalType) {;
         case 1:
             sf = sin(_Pi2*freq*t_star+Phase);
@@ -148,7 +153,7 @@ fpv s_PointSource<fpv>::monopole(fpv* R, fpv time, int diff) const {
         }
     }
 
-    // Считаем M = - dx/dt в момент эмиссии. Ещё считаем dM/dt 
+    // Calc M = - dx/dt at the emission time moment. Also calc dM/dt 
     fpv M = FlowMach, dMdt = 0.0;
     if(UseUnsteady) {
         fpv Uampl = UnstAmpl / SoundVel;
@@ -156,12 +161,12 @@ fpv s_PointSource<fpv>::monopole(fpv* R, fpv time, int diff) const {
         dMdt = fpv(Uampl*Pi2*freq*cos(Pi2*freq*t_star+ UnstPhase));
     }
 
-    fpv rxi = absr + r[0]*M; // знаменатель в формуле
-    fpv xi = rxi / absr; // допплеровский множитель
+    fpv rxi = absr + r[0]*M; // denominator
+    fpv xi = rxi / absr; // Doppler multiplicator
 
     fpv solut = 0.0;
     switch (diff) {;
-    case 0: // волновой потенциал
+    case 0: // wave potential
         solut = sf / rxi;
         break;
     case 1: // Z derivative in cylindrical coords
@@ -195,36 +200,46 @@ fpv s_PointSource<fpv>::monopole(fpv* R, fpv time, int diff) const {
 
 
 //======================================================================================================================
-// Точное решение для задачи о распространении звука от точечного источника
-// Обезразмеривание произвольное
+// Exact solution for the acoustic wave from a point source in 3D
+// Arbitrary sound speed (i. e. SoundVel may be not equal to 1)
 //======================================================================================================================
 template<typename fpv>
 void s_PointSource<fpv>::PointValue1(fpv t, const fpv* coor, fpv* uex) const {
     for(int ivar=Var_R; ivar<=Var_P; ivar++) uex[ivar] = 0.0;
 
-    // Переобезразмериваем время на скорость звука
+    // Non-dimentionalizing to the unit sound speed
     fpv time = t * SoundVel;
 
-    fpv r[2] = {coor[0], sqrt(SQR(coor[1]) + SQR(coor[2]))};
-    if(fabs(r[0]) < tiny && fabs(r[1]) < tiny) return; // В точке источника решение не определено. Возвращаем ноль
+    // Converting Cartesian coordinates to the cylindrical system aligned with the flow direction
+    // If there is no flow, formal direction coincides with the vector (1,0,0), see Init()
+    fpv r[2];
+    r[0] = coor[0]*FlowDirX + coor[1]*FlowDirY + coor[2]*FlowDirZ;
+    r[1] = sqrt(VDOT(coor, coor) - r[0]*r[0]);
+    if(fabs(r[0]) < get_eps<fpv>() && fabs(r[1]) < get_eps<fpv>()) return; // В точке источника решение не определено. Возвращаем ноль
 
-    // Считаем пульсации плотности и цилиндрических компонент скоростей
+    // Pulsations of density and cylindrical components of the velocity
     uex[Var_R] = uex[Var_P] = monopole(r, time, 4); // Rho'
-    uex[Var_U] = - monopole(r, time, 1); // Uz'
-    uex[Var_V] = - monopole(r, time, 2); // Ur'
-
-    // Переходим от цилиндрических компонент к декартовым
-    fpv solut = uex[Var_V];
-    if(r[1] < get_eps<fpv>())
-        uex[Var_V] = uex[Var_W] = 0.0;
-    else {
-        uex[Var_V] = solut * coor[1] / r[1];
-        uex[Var_W] = solut * coor[2] / r[1];
-    }
-
-    // Учитываем исходное обезразмеривание
+    // Taking into account that generally SoundVel!=1
     uex[Var_R] /= SoundVel;
     uex[Var_P] *= SoundVel;
+
+    // Velocity component aligned with the background flow
+    fpv U_flow = - monopole(r, time, 1); // Uz'
+    uex[Var_U] = U_flow*FlowDirX;
+    uex[Var_V] = U_flow*FlowDirY;
+    uex[Var_W] = U_flow*FlowDirZ;
+
+    // Velocity component normal to the background flow
+    fpv DirOrth[3] = {coor[0] - FlowDirX*r[0], coor[1] - FlowDirY*r[0], coor[2] - FlowDirZ*r[0]};
+    fpv DirOrthAbs = sqrt(VDOT(DirOrth, DirOrth));
+    if(DirOrthAbs > get_eps<fpv>()) {
+        fpv U_orth = - monopole(r, time, 2); // Ur'
+        U_orth /= DirOrthAbs; // Ur' / r
+        uex[Var_U] += U_orth * DirOrth[0];
+        uex[Var_V] += U_orth * DirOrth[1];
+        uex[Var_W] += U_orth * DirOrth[2];
+    }
+
 }
 //======================================================================================================================
 
@@ -232,7 +247,7 @@ void s_PointSource<fpv>::PointValue1(fpv t, const fpv* coor, fpv* uex) const {
 template<typename fpv>
 void s_PointSource<fpv>::PointValue(fpv t, const fpv* Coords, fpv* uex) const {
 //======================================================================================================================
-    fpv buf[Var_NumMax];
+    fpv buf[Var_N];
     for(int ivar=0; ivar<Var_N; ivar++) uex[ivar] = 0.0;
 
     for(int i=0; i<tSpaceForm<fpv>::NAngularPeriods; i++) {
@@ -257,9 +272,9 @@ void s_PointSource<fpv>::PointValue(fpv t, const fpv* Coords, fpv* uex) const {
 template<typename fpv>
 void s_Source1D3D<fpv>::ReadParams(tFileBuffer& FB) {
     tParamManager PM;
-    // Зависимость источника от координаты
+    // How source depends on r
     tSpaceForm<fpv>::Read(FB, true /* periodics is permitted */);
-    // Зависимость источника от времени
+    // How source depends on time
     PM.Request(Ampl, "Ampl");
     PM.Request(Freq, "Freq");
     PM.Request(Phase, "Phase");
@@ -272,7 +287,7 @@ void s_Source1D3D<fpv>::ReadParams(tFileBuffer& FB) {
 
 
 //======================================================================================================================
-// Зависимость сигнала от времени
+// How source depends on time
 //======================================================================================================================
 template<typename fpv>
 fpv s_Source1D3D<fpv>::TimeForm(fpv time) const {
@@ -293,7 +308,7 @@ fpv s_Source1D3D<fpv>::TimeForm(fpv time) const {
 //======================================================================================================================
 
 //======================================================================================================================
-// Зависимость сигнала от времени. Вычисление производной
+// How source depends on time. Calculating of the derivative
 //======================================================================================================================
 template<typename fpv>
 fpv s_Source1D3D<fpv>::TimeFormDeriv(fpv time) const {
@@ -316,7 +331,7 @@ fpv s_Source1D3D<fpv>::TimeFormDeriv(fpv time) const {
 //======================================================================================================================
 
 //======================================================================================================================
-// Зависимость сигнала от времени. Вычисление второй производной
+// How source depends on time. Calculating of the second derivative
 //======================================================================================================================
 template<typename fpv>
 fpv s_Source1D3D<fpv>::TimeFormDeriv2(fpv time) const {
@@ -337,12 +352,12 @@ fpv s_Source1D3D<fpv>::TimeFormDeriv2(fpv time) const {
 //======================================================================================================================
 
 //======================================================================================================================
-// Зависимость сигнала от времени. Вычисление первообразной
+// How source depends on time. Calculating of the antiderivative
 //======================================================================================================================
 template<typename fpv>
 fpv s_Source1D3D<fpv>::TimeFormAntideriv(fpv time) const {
     if(time < tmin) return 0.0;
-    if(time > tmax) time = tmax; // первообразная стагнирует, когда функция нулевая
+    if(time > tmax) time = tmax; // antiderivative is constant when the function is zero
     
     fpv omega = GetPiNumber2<fpv>()*Freq;
     fpv phase = omega*time+Phase;
@@ -361,7 +376,7 @@ fpv s_Source1D3D<fpv>::TimeFormAntideriv(fpv time) const {
 
 
 //======================================================================================================================
-// Сигнал для одного источника на расстоянии x от него
+// Signal from a single source at the distance x
 //======================================================================================================================
 template<typename fpv>
 void s_Source1D<fpv>::PointValue1(fpv t, fpv x, fpv* V) const {
@@ -369,7 +384,7 @@ void s_Source1D<fpv>::PointValue1(fpv t, fpv x, fpv* V) const {
     if(_GI.GN==NULL) crash("s_Source1D: Init not done");
     static fpv cnst_radius = sqrt(-2.*log(get_eps<fpv>())/GetLn2<fpv>()); // sqrt(-2*log2(eps)) ~ 10.21
     fpv beff = tSpaceForm<fpv>::Bterm;
-    if(tSpaceForm<fpv>::Form==0) beff *= cnst_radius; // Радиус источника: для гауссиана выбирается радиус обрезки
+    if(tSpaceForm<fpv>::Form==0) beff *= cnst_radius; // Source radius: truncating the Gaussian
     const fpv q = MAX(tSpaceForm<fpv>::InvBTerm, 4.0*Pi2*s_Source1D3D<fpv>::Freq);
 
     fpv sum[2] = {0.0, 0.0};
@@ -387,7 +402,7 @@ void s_Source1D<fpv>::PointValue1(fpv t, fpv x, fpv* V) const {
         }
         if(yR <= yL) continue;
 
-        fpv dy0 = yR-yL; // длина отрезка интегрирования
+        fpv dy0 = yR-yL; // length of the integration interval
         int numk = int(0.68*q*dy0) + 1;
         fpv dy = dy0 / numk;
         for(int k=0; k<numk; k++) for(int i=0; i<_GI.GR; i++) {
@@ -413,7 +428,7 @@ static int _compare_fpv(const void* a, const void* b){
 }
 
 //======================================================================================================================
-// Сигнал для одного источника: вычисляем p и ur/r
+// Signal from a single source: calculating p and ur/r
 //======================================================================================================================
 template<typename fpv>
 void s_Source3D<fpv>::PointValue1(fpv t, fpv r, fpv& _p, fpv& _urr) const {
@@ -527,11 +542,11 @@ void s_Source3D<fpv>::PointValue1(fpv t, fpv r, fpv& _p, fpv& _urr) const {
 
 
 //======================================================================================================================
-// Сигнал от решётки источников
+// Signal from a lattice of sources
 //======================================================================================================================
 template<typename fpv>
 void s_Source1D<fpv>::PointValue(fpv t, const fpv* coor, fpv* uex) const {
-    fpv buf[Var_NumMax];
+    fpv buf[Var_N];
     for(int ivar=0; ivar<Var_N; ivar++) uex[ivar] = 0.0;
 
     for(int i=-s_Source1D3D<fpv>::MaxPer[0]; i<=s_Source1D3D<fpv>::MaxPer[0]; i++) {
@@ -544,7 +559,7 @@ void s_Source1D<fpv>::PointValue(fpv t, const fpv* coor, fpv* uex) const {
 
 
 //======================================================================================================================
-// Сигнал от решётки источников
+// Signal from a lattice of sources
 //======================================================================================================================
 template<typename fpv>
 void s_Source3D<fpv>::PointValue(fpv t, const fpv* coor, fpv* uex) const {
@@ -575,8 +590,8 @@ void s_Source2D::ReadParams(tFileBuffer& FB) {
     PM.Request(Ampl, "Ampl");
     PM.Request(Freq, "Freq");
     PM.Request(Phase, "Phase");
-    PM.Request(GR, "GR"); // параметры интегрирования
-    PM.Request(mm, "mm"); // параметры интегрирования
+    PM.Request(GR, "GR"); // integration parameters
+    PM.Request(mm, "mm"); // integration parameters
     PM.Request(Hmax, "Hmax");
     PM.ReadParamsFromBuffer(FB);
 }
@@ -584,7 +599,7 @@ void s_Source2D::ReadParams(tFileBuffer& FB) {
 
 //======================================================================================================================
 void s_Source2D::PointValue(double t, const double* coor, double* V) const {
-    const double beff = Bterm * (Form==FORM_GAUSSIAN ? Hmax : 1.0); // Радиус источника: для гауссиана выбирается радиус обрезки
+    const double beff = Bterm * (Form==FORM_GAUSSIAN ? Hmax : 1.0); // Source radius: truncating the Gaussian
     const double omega = Pi2 * Freq;
     const double r = sqrt(SQR(coor[0]-r0[0]) + SQR(coor[1]-r0[1]));
 
@@ -594,9 +609,9 @@ void s_Source2D::PointValue(double t, const double* coor, double* V) const {
     const double J1x = BesselJ1(x);
     const double N1x = BesselN1(x);
 
-    double re = 0.0, im = 0.0; // действительная и мнимая часть интеграла
-    double red = 0.0, imd = 0.0; // действительная и мнимая часть интеграла от продифференцированной функции
-    // цикл по двум интервалам: от 0 до r и от r до бесконечности
+    double re = 0.0, im = 0.0; // real and imaginary parts of the integral
+    double red = 0.0, imd = 0.0; // real and imaginary parts of the integral of the derivative
+    // two intervals: from 0 to r and from r to infinity
     for(int iint=0; iint<2; iint++) {
         double limL = iint ? r : 0.0, limR = iint ? huge : r;
         if(limL > beff) continue;
@@ -641,7 +656,6 @@ void s_Source2D::PointValue(double t, const double* coor, double* V) const {
 
 //======================================================================================================================
 void s_RotatingDipole::PointValue(double t, const double* Coords, double* uex) const {
-//======================================================================================================================
     for(int i=0; i<5; i++) uex[i]=0.0;
 
     double x = Coords[(dir+1)%3], y = Coords[(dir+2)%3], z = Coords[dir];
@@ -654,10 +668,8 @@ void s_RotatingDipole::PointValue(double t, const double* Coords, double* uex) c
     double a = -s*x+c*y;
     double b = s*y+c*x;
 
-    // Плотность и давление
     uex[Var_R] = uex[Var_P] = Omega*(a - b*Omega*R)/(R*R*R);
 
-    // Скорости
     double aux = ((3.0 - Omega*Omega*R*R)*b + 3.0*Omega*R*a)/(R*R*R*R*R);
     uex[Var_U + (dir+1)%3] = x*aux - (c - Omega*R*s)/(R*R*R);
     uex[Var_U + (dir+2)%3] = y*aux - (s + Omega*R*c)/(R*R*R);
@@ -667,7 +679,6 @@ void s_RotatingDipole::PointValue(double t, const double* Coords, double* uex) c
 
 //======================================================================================================================
 void s_RotatingDipole::ReadParams(tFileBuffer& FB) {
-//======================================================================================================================
     tParamManager PM;
     PM.RequestParameter(Ampl, "Ampl", PARTYPE_DOUBLE, IO_DONTCRASH);
     PM.RequestParameter(Omega, "Omega", PARTYPE_DOUBLE, IO_DONTCRASH);

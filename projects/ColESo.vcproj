@@ -306,6 +306,14 @@
 	</References>
 	<Files>
 		<File
+			RelativePath="..\src\base_parser.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\src\coleso_utils.cpp"
+			>
+		</File>
+		<File
 			RelativePath="..\src\es_aux.cpp"
 			>
 		</File>
@@ -350,6 +358,10 @@
 			>
 		</File>
 		<File
+			RelativePath="..\src\es_specfunc_cephes.cpp"
+			>
+		</File>
+		<File
 			RelativePath="..\src\es_specfunc_dd.cpp"
 			>
 		</File>
@@ -370,7 +382,7 @@
 			>
 		</File>
 		<File
-			RelativePath="..\src\io_parser.cpp"
+			RelativePath="..\src\imf_sfunction.cpp"
 			>
 		</File>
 	</Files>

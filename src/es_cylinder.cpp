@@ -5,14 +5,11 @@
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
-#include "parser.h"
+#include "base_parser.h"
 #include "coleso.h"
 #include "es_utils.h"
 #include "geom_primitive.h"
 #include "es_specfunc.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 
 //======================================================================================================================
 void s_Cylinder::ReadParams(tFileBuffer& FB) {
@@ -43,7 +40,7 @@ void s_Cylinder::Init(void) {
     if(IsNaN(Kmax) || Kmax < tiny) Kmax = 6.0 / Bterm;
     GI.Init(NumK);
 
-    // Discretization by radius for intrgrals calculation
+    // Discretization by radius for integrals calculation
     const double R0 = sqrt(SQR(Xterm - X) + SQR(Yterm - Y)); // Distance between cylinder and initial pulse centers
     double rmin = R0 - 7.0 * Bterm;
     double rmax = R0 + 7.0 * Bterm;
@@ -91,7 +88,7 @@ void s_Cylinder::Init(void) {
             }
         }
 
-        // Считаем разницу и сохраняем копию коэффициентов
+        // Calculating the difference and store a copy of the coefficients set
         err = 0.0;
         for(int i=0; i<NumK*NumN; i++) { err += fabs(Coeff[i] - CoeffOld[i]); CoeffOld[i] = Coeff[i]; }
     }

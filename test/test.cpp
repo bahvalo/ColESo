@@ -1,5 +1,5 @@
 #include "coleso.h"
-#include "parser.h"
+#include "base_parser.h"
 using namespace std;
 
 void ColESo_Tests(int argc, char** argv);
@@ -12,7 +12,7 @@ void ColESo_Tests(int argc, char** argv);
     FILE* out = fopen((const char*)Z, "wt"); \
     if(out==NULL) crash("Error opening file %s for writing\n", Z);
 
-int main(int argc, char** argv) { 
+int main(int argc, char** argv) {
     double V[10];
     string SolutionName = "";
     if(argc > 1) SolutionName = argv[1];
@@ -354,7 +354,7 @@ int main(int argc, char** argv) {
             }
             fclose(out);
         }
-    }    
+    }
     if(SolutionName.empty() || CompareWords(SolutionName, "rankinevortex") || CompareWords(SolutionName, "gaussianvortex") || CompareWords(SolutionName, "finitevortex")) {
         s_RankineVortex SR;
         s_GaussianVortex SG;
@@ -362,9 +362,9 @@ int main(int argc, char** argv) {
         SR.ReadParamsFromFile("PARAMS/es_rankinevortex.txt");
         SG.ReadParamsFromFile("PARAMS/es_gaussianvortex.txt");
         SF.ReadParamsFromFile("PARAMS/es_finitevortex.txt");
-        SR.Init(); 
-        SG.Init(); 
-        SF.Init(); 
+        SR.Init();
+        SG.Init();
+        SF.Init();
         FILE* out = fopen("DATA1D/vortexes.dat", "wt");
         if(out==NULL) crash("Error opening file %s for writing\n", "DATA1D/vortexes.dat");
         printf("DATA1D/vortexes.dat\n");
@@ -393,7 +393,7 @@ int main(int argc, char** argv) {
         for(double x = -0.7; x<=0.5000001; x+=0.01) {
             double C[3] = {x, 0.0, 0.0};
             S.PointValue( 0.0, C, V1);
-            S.PointValue( 0.1, C, V2);
+            S.PointValue( 0.09, C, V2);
             fprintf(out, "%25.15f %25.15f %25.15f %25.15f %25.15f\n", x, V1[0], V1[4], V2[0], V2[4]);
         }
         fclose(out);

@@ -1,4 +1,4 @@
-### Acoutics between coaxial cylinders
+### Acoustics between coaxial cylinders
 # Problem geometry
 rmin               5/9                 # inner cylinder radius (may be zero)
 rmax               1.0                 # outer cylinder radius
@@ -9,7 +9,7 @@ CoorAxis           2                   # axis: 0 - X, 1 - Y, 2 - Z
 #SoundVel          1.0                 # sound speed
 
 ### Solution parameters
-AsimuthalMode      8                   # asimuthal mode (integer)
+AzimuthalMode      8                   # azimuthal mode (integer)
 RadialMode         2                   # radial mode (integer)
 kz                 2*PI*3/2            # axial wave number (double)
 Ampl               1.0                 # amplitude (multiplicator)

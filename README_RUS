@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 | Collection of exact solutions (ColESo)                                     |
 |                                                                            |
-| Revised  25.01.2021                                                        |
+| Revised  21.06.2022                                                        |
 ------------------------------------------------------------------------------
 
 Условия распространения библиотеки см. в файле COPYING.
@@ -103,7 +103,7 @@ checkqd       Для решения задачи о волне в цилиндр
 
 clean         Удалить все выходные директории (bin, test/DATA1D, test/DATA2D)
 
-Также предлагается решение для Miscrosoft Visual Studio, содержащее два простых примера
+Также предлагается решение для Microsoft Visual Studio, содержащее два простых примера
 на C++, работающих в арифметике двойной и четверной точности соответственно. 
 Для сборки последнего требуется определить соответствующий флаг
 (#define EXTRAPRECISION_COLESO) в файле src/personal.h и пересобрать библиотеку ColESo.
@@ -252,17 +252,15 @@ pprintf(...), который также может быть переопреде
 
 ColESo использует отдельные процедуры из следующих библиотек:
 
-* library of Research Computing Center of Moscow State University,
-  http://num-anal.srcc.msu.ru
 * Cephes,
   http://www.netlib.org/cephes
+  Распространяется по лицензии MIT
 * GNU LibQuadMath,
   https://gcc.gnu.org/onlinedocs/gcc-4.9.4/libquadmath
+  Распространяется по лицензии GPL v2.1
 * Jacobi quadrature rules by S. Elhay, J. Kautsky, J. Burkadrt,
   people.sc.fsu.edu/~jburkardt/cpp_src/jacobi_rule/jacobi_rule.html
-
-Условия распространения этих библиотек могут отличаться
-от условий распространения остальной части библиотеки ColESo.
+  Распространяется по лицензии LPGL
 
 Для работы с арифметикой четверной и восьмерной точности ColESo использует
 следующую библиотеку:

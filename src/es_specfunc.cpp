@@ -5,10 +5,8 @@
 // *********************************************************************************************************************
 
 #include "es_specfunc.h"
-#include "const.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
+#include "es_utils.h"
+#include "base_const.h"
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h"
 #endif
@@ -128,11 +126,11 @@ int BesselFunctionsY(NativeDouble x, int nmax, NativeDouble *Y) {
 
 
 //======================================================================================================================
-// Вычисление радиальной части собственных функций оператора Лапласа во внешности круга радиуса rc
-// с граничным условием 2-го рода на границе круга
-// Функции определяются формулой u_{nu,k}(r) = phi(nu, k*r, k*r_c), r >= rc,
+// Radial part of eigenfunctions of the Laplace operator in a circle exterior (r > y)
+// with the Neumann conditions at r = rc
+// These functions are given by  u_{nu,k}(r) = phi(nu, k*r, k*y), r >= y,
 // phi(nu,x,y) = (- N'_nu(y) J_nu(x) + J'_nu(y) N_nu(x)) / sqrt((J'_nu(y))^2 + (N'_nu(y))^2), x >= y.
-// Процедура вычисляет значения функций phi(nu,x,y) и dphi/dx(nu,x,y) при заданных x,y и всех nu=0,...,Nmax-1
+// This subroutine calculates the values of phi(nu,x,y) and dphi/dx(nu,x,y) for given x,y and each nu=0,...,Nmax-1
 //======================================================================================================================
 void BesselOuterFunction(NativeDouble x, NativeDouble y, int Nmax, NativeDouble* phi, NativeDouble* dphi) {
     if(x<y) crash("BesselOuterFunction error: x < y");
@@ -140,7 +138,7 @@ void BesselOuterFunction(NativeDouble x, NativeDouble y, int Nmax, NativeDouble*
 
     if(x < tiny) { // x=y=0. No inner radius and calculating values at x=0
         if(phi!=NULL)  { for(int i=0; i<Nmax; i++) phi[i] = 0.0;  phi[0] = 1.0; }
-        if(dphi!=NULL) { for(int i=0; i<Nmax; i++) dphi[i] = 0.0; if(Nmax>=1) dphi[1] = 1.0; }
+        if(dphi!=NULL) { for(int i=0; i<Nmax; i++) dphi[i] = 0.0; if(Nmax>=2) dphi[1] = 1.0; }
         return;
     }
 
@@ -238,8 +236,8 @@ void BesselOuterFunction(NativeDouble x, NativeDouble y, int Nmax, NativeDouble*
 
 
 //======================================================================================================================
-// Вычисление функции Бесселя 1-го рода индекса l в точек x
-// Также вычисляет её производные до 5-го порядка, если соответствующие указатели ненулевые
+// Bessel function of the first kind and index l at a point x
+// Also calculates its derivatives up to the order 5 (if the corresponding pointers are nonzero)
 //======================================================================================================================
 NativeDouble BesselJ(int l, NativeDouble x, NativeDouble* dbdx, NativeDouble* d2bdx2,
                      NativeDouble* d3bdx3, NativeDouble* d4bdx4, NativeDouble* d5bdx5) {
@@ -402,6 +400,7 @@ void InitBackwardRecursion(const std::complex<NativeDouble>& z, int N, NativeDou
         p = NativeDouble(n*2)*plast*zinv - pold;
         if (abs(p) >= very_huge) { overflow_flag = 1; break; }
     }
+    n--;
 
     // Main mode
     if(!overflow_flag) {
@@ -411,7 +410,6 @@ void InitBackwardRecursion(const std::complex<NativeDouble>& z, int N, NativeDou
 
         ncalc = N; // values for all n=0,...,N-1 will be calculated
         // Calculate p_n until |p_n|>=test
-        n=N-1;
         int m = 0;
         while(1) {
             ++n;
@@ -433,7 +431,7 @@ void InitBackwardRecursion(const std::complex<NativeDouble>& z, int N, NativeDou
     // Now consider the case when  |J_n(x)|=inf  for some n<N
     else {
         ncalc = n + 1; // save
-        // Here 'n' is the index where overflow occured
+        // Here 'n' is the index where overflow occurred
         // Above we compared |p| with 'very_huge', so we can slightly increase 'n'
         // To do this, divide all data by very_huge and continue the recursion
         p /= very_huge;

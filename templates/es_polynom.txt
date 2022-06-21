@@ -1,5 +1,5 @@
-### Planar wave with a profile prescribed by a Chebyshev polinomal
-Degree 1		# Degree of the polynomial 
+### Planar wave with a profile prescribed by a Chebyshev polynomial
+Degree 1		# Degree of the polynomial
 Aterm 1			# Maximal absolute value of the polynomial on [Xmin, Xmax]
-Xmin -0.5               # Agrument of the polynomial is scaled to [Xmin, Xmax]
+Xmin -0.5               # Argument of the polynomial is scaled to [Xmin, Xmax]
 Xmax 0.5                #

@@ -5,18 +5,15 @@
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
-#include "parser.h"
+#include "base_parser.h"
 #include "coleso.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 
 //======================================================================================================================
 enum tRiemannProblemType{
-    RIEMANN_CUSTOM     =  0,  // общий случай
+    RIEMANN_CUSTOM     =  0,  // general case
     RIEMANN_SOD        =  1,  // Sod shock tube
     RIEMANN_LAX        =  2,  // Lax problem
-    RIEMANN_ZHMF       =  3   // задача Жмакина-Фурсенко
+    RIEMANN_ZHMF       =  3   // Zhmakin-Fursenko problem
 };
 
 //======================================================================================================================
@@ -57,13 +54,13 @@ int s_Riemann::IsShock(double* ushock) const {
 
 //======================================================================================================================
 void s_Riemann::ReadParams(tFileBuffer& FB) {
-    int KeyProblem = RIEMANN_CUSTOM; // можно задать задачу одним ключом, не вводя параметры
+    int KeyProblem = RIEMANN_CUSTOM; // one can specify a problem by a single key
 
     tParamManager PM;
-    PM.Request(e[0], "ex"); // Направление разрыва
-    PM.Request(e[1], "ey"); // Направление разрыва
-    PM.Request(e[2], "ez"); // Направление разрыва
-    PM.Request(DF_Coor, "DF_Coor"); // Координата разрыва
+    PM.Request(e[0], "ex"); // Shock direction
+    PM.Request(e[1], "ey"); // Shock direction
+    PM.Request(e[2], "ez"); // Shock direction
+    PM.Request(DF_Coor, "DF_Coor"); // Shock position
     PM.RequestParameter(KeyProblem, "KeyProblem", "CUSTOM 0  SOD 1  LAX 2  ZHMF 3", IO_DONTCRASH);
     PM.ReadParamsFromBuffer(FB);
 
@@ -126,7 +123,8 @@ void s_Riemann::Init() {
         if(unst) crash("s_Riemann: Steady flag set but condition %i is not satisfied", unst-1);
     }
 
-    // Определяем фоновые параметры по полю с меньшим давлением
+    // Specify background field parameters using the background field with lower pressure
+    // This background field is for the use in Noisette only. Not used in ColESo itself
     if(MUL[2]>MUR[2]) { FlowVel = MUR[1]; SoundVel = sqrt(gam*MUR[2]/MUR[0]); }
     else { FlowVel = MUL[1]; SoundVel = sqrt(gam*MUL[2]/MUL[0]); }
 }
@@ -138,22 +136,22 @@ void s_Shock::ReadParams(tFileBuffer& FB) {
 
     tParamManager PM;
     PM.Request(gam, "gam"); // Specific ratio
-    PM.Request(DF_Coor, "DF_Coor"); // Координата разрыва
+    PM.Request(DF_Coor, "DF_Coor"); // Shock position
     PM.Request(MUR[0], "Rho");
     PM.Request(MUR[1], "U");
     PM.Request(MUR[2], "P");
     PM.Request(cr, "C");
     PM.Request(Mach, "Mach");
-    PM.Request(e[0], "ex"); // Направление разрыва
-    PM.Request(e[1], "ey"); // Направление разрыва
-    PM.Request(e[2], "ez"); // Направление разрыва
+    PM.Request(e[0], "ex"); // Shock direction
+    PM.Request(e[1], "ey"); // Shock direction
+    PM.Request(e[2], "ez"); // Shock direction
     PM.ReadParamsFromBuffer(FB);
 
-    if(PM["C"].GetIsSet() && PM["P"].GetIsSet() && PM["Rho"].GetIsSet()) { // rho, p, c заданы
-        if(fabs(MUR[2] - cr*cr*MUR[0]/gam) > 1e-10) // проверяем, что они заданы согласованно
+    if(PM["C"].GetIsSet() && PM["P"].GetIsSet() && PM["Rho"].GetIsSet()) { // rho, p, c are given
+        if(fabs(MUR[2] - cr*cr*MUR[0]/gam) > 1e-10) // Consistency check
             crash("s_Shock: both C, P and Rho given but P!=rho*C^2/gam");
     }
-    else { // заданы две величины, среди которых скорость звука, пересчитываем по ним третью
+    else { // Two variables including sound speed are given, use them to calculate the third one
         if(PM["C"].GetIsSet() && PM["Rho"].GetIsSet()) MUR[2] = cr*cr*MUR[0]/gam;
         if(PM["C"].GetIsSet() && PM["P"].GetIsSet()) MUR[0] = gam*MUR[2]/(cr*cr);
     }
@@ -162,15 +160,15 @@ void s_Shock::ReadParams(tFileBuffer& FB) {
 
 //======================================================================================================================
 void s_Shock::Init() {
-// Предполагаем, что к настоящему моменту заданы значения перед фронтом и число Маха ударной волны
+    // To this moment, the values in front of the shock and the Mach number of the shock should be set
     if(IsNaN(Mach) || Mach < 1.0) crash("s_Shock error: Mach = %e, should be >= 1", Mach);
     if(MUR[0] < tiny || MUR[2] < tiny) crash("s_Shock error: rhoR = %e, pR = %e", MUR[0], MUR[2]);
     double cr = sqrt(gam*MUR[2]/MUR[0]);
 
-// Определяем фоновые параметры по значению перед фронтом
+    // "Background flow" parameters as a values in front of the shock (not used in ColESo)
     FlowVel = fabs(MUR[1]); SoundVel = sqrt(gam*MUR[2]/MUR[0]);
 
-// Определяем параметры за фронтом (MUL)
+    // Parameters behind the shock (MUL)
     double rmc = sqrt(gam*MUR[0]*MUR[2])*Mach;
 
     MUL[1] = Mach*cr*(1 - 2.0/(gam+1.0) * (gam + 1/(Mach*Mach)));
@@ -199,7 +197,7 @@ void s_Riemann::PointValue(double t, const double* coor, double* V) const {
     }
 
     double lambda = x / t;
-    double UAL[Var_NumMax], UAR[Var_NumMax];
+    double UAL[Var_N], UAR[Var_N];
     UAL[Var_R]=MUL[0]; UAL[Var_U]=MUL[1]*e[0]; UAL[Var_V]=MUL[1]*e[1]; UAL[Var_W]=MUL[1]*e[2]; UAL[Var_P] = MUL[2];
     UAR[Var_R]=MUR[0]; UAR[Var_U]=MUR[1]*e[0]; UAR[Var_V]=MUR[1]*e[1]; UAR[Var_W]=MUR[1]*e[2]; UAR[Var_P] = MUR[2];
     RMN_PrimVar(UAL, UAR, e, V, lambda, gam, 0);
@@ -414,15 +412,15 @@ void RMN_PrimVar(const double* UAL, const double* UAR, const double* normals, do
     }
     else crash("RMN_PrimVar: error: vacuum detected");
 
-    if(lp) { un0 = -un0; uc = -uc; lambda = -lambda; } // Восстанавливаем знаки скоростей, если делали замену x=-x
+    if(lp) { un0 = -un0; uc = -uc; lambda = -lambda; } // restoring signs of the velocities if we changed x <-> -x
 
-    // значения плотности и давления уже выставлены
-    // выставляем значения скоростей и доп. переменных по невозмущённым значениям слева или справа от разрыва
+    // pressure and density are already set
+    // now set the values of velocity and extra variables using the values from the left or from the right
     const double* UU = (uc-lambda > 0 ? UAL : UAR);
-    for(int ivar=0; ivar<Var_NumTurb; ivar++) U0[Var_Nu+ivar] = UU[Var_Nu+ivar];
+    for(int ivar=0; ivar<Var_NumTurb; ivar++) U0[Var_N+ivar] = UU[Var_N+ivar];
     for(int ivar=Var_U; ivar<=Var_W; ivar++) U0[ivar] = UU[ivar];
 
-    // осталось поправить нормальную компоненту скорости
+    // it remains to corrcet the normal component or the velocity
     double dun0 = un0 - VDOT(UU+Var_U, normals);
     U0[Var_U] += dun0*normals[0];
     U0[Var_V] += dun0*normals[1];

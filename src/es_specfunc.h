@@ -5,7 +5,7 @@
 #ifndef ES_SPECFUNC_HEADER
 #define ES_SPECFUNC_HEADER
 
-#include "personal.h"
+#include "base_config.h"
 
 // Bessel functions of the first and second kind
 template<typename fpv> fpv BesselJ0(fpv arg);
@@ -34,11 +34,11 @@ int BesselFunctionsY(NativeDouble x, int nmax, NativeDouble *Y);
 template<typename real>
 void BesselJComplex(int l, real x, real y, real* ReBesselJ, real* ImBesselJ, real* ReDBesselJ = NULL, real* ImDBesselJ = NULL);
 
-// Вычисление радиальной части собственных функций оператора Лапласа во внешности круга радиуса rc
-// с граничным условием 2-го рода на границе круга
-// Функции определяются формулой u_{nu,k}(r) = phi(nu, k*r, k*r_c), r >= rc,
+// Radial part of eigenfunctions of the Laplace operator in a circle exterior (r > y)
+// with the Neumann conditions at r = rc
+// These functions are given by  u_{nu,k}(r) = phi(nu, k*r, k*y), r >= y,
 // phi(nu,x,y) = (- N'_nu(y) J_nu(x) + J'_nu(y) N_nu(x)) / sqrt((J'_nu(y))^2 + (N'_nu(y))^2), x >= y.
-// Процедура вычисляет значения функций phi(nu,x,y) и dphi/dx(nu,x,y) при заданных x,y и всех nu=0,...,Nmax-1
+// This subroutine calculates the values of phi(nu,x,y) and dphi/dx(nu,x,y) for given x,y and each nu=0,...,Nmax-1
 void BesselOuterFunction(NativeDouble x, NativeDouble y, int Nmax, NativeDouble* phi, NativeDouble* dphi);
 
 // Modified Bessel functions for n = 0, ..., n1-1
@@ -46,8 +46,8 @@ template<typename fpv> void BesselI(fpv x, int n1, fpv eps, int s, fpv *t);
 
 void PrintBesselDerivatives(int l);
 
-NativeDouble cephes_erf(NativeDouble x); // функция ошибок
-void fresnl(NativeDouble x, NativeDouble& ss, NativeDouble& cc); // интегралы Френеля
+NativeDouble cephes_erf(NativeDouble x); // erf
+void fresnl(NativeDouble x, NativeDouble& ss, NativeDouble& cc); // Fresnel integrals
 double expn( int n, double x ); // int_1^\infty exp(-x*t) / t^n dt
 
 

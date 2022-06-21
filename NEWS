@@ -1,4 +1,15 @@
 Changes for 1.0  (25.01.2021)
     Userguide added.
-    s_Couette now admit \mu(T)=c*T
+    s_Couette now admits \mu(T)=c*T
     Multiple minor changes fixes.
+
+Changes for 1.1  (21.06.2022)
+    Most of the comments translated into English
+    Math documentation added (now in Russian only)
+    s_Couette admits \mu(T)=c*sqrt(T) and the Sutherland law
+    s_ViscShock admits \mu=const, Pr=3/4 or Pr=infty with any rhoL/rhoR
+    bug fixes
+
+
+Known issues:
+1. s_WaveInChannel, the case of a planar channel. Only even (symmetric w.r.t. channel center) are implemented.

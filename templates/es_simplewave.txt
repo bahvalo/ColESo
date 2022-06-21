@@ -1,6 +1,7 @@
-### Smooth simple wave (case from preprint 2013-53 by Ladonkina et al.)
+### Smooth simple wave (based on a case from preprint 2013-53 by Ladonkina et al.)
 x0           0.0           # perturbation center
 l            0.2           # perturbation width
+a            2^((5/3-1)/2) # perturbation strength
 #gam         5./3.         # specific ratio
 #SoundVel    sqrt(10.)/3.  # sound speed in background media
 #FlowVel     -sqrt(10.)    # background flow

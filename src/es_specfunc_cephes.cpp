@@ -253,7 +253,7 @@ double cephes_y1(double x) {
 // For x >= 1 auxiliary functions f(x) and g(x) are employed such that
 // C(x) = 0.5 + f(x) sin( pi/2 x**2 ) - g(x) cos( pi/2 x**2 )
 // S(x) = 0.5 - f(x) cos( pi/2 x**2 ) - g(x) sin( pi/2 x**2 )
-// Acuracy: Arithmetic  function   domain     # trials      peak         rms
+// Accuracy: Arithmetic  function   domain     # trials      peak         rms
 //            IEEE       S(x)      0, 10       10000       2.0e-15     3.2e-16
 //            IEEE       C(x)      0, 10       10000       1.8e-15     3.3e-16
 //======================================================================================================================
@@ -391,7 +391,7 @@ void fresnl(double xxa, double& ss, double& cc) {
 
 
 
-/*                            gamma.c
+/*                            Gamma.c
  *
  *    Gamma function
  *
@@ -399,19 +399,19 @@ void fresnl(double xxa, double& ss, double& cc) {
  *
  * SYNOPSIS:
  *
- * double x, y, gamma();
+ * double x, y, Gamma();
  * extern int sgngam;
  *
- * y = gamma( x );
+ * y = Gamma( x );
  *
  *
  *
  * DESCRIPTION:
  *
- * Returns gamma function of the argument.  The result is
+ * Returns Gamma function of the argument.  The result is
  * correctly signed, and the sign (+1 or -1) is also
  * returned in a global (extern) variable named sgngam.
- * This variable is also filled in by the logarithmic gamma
+ * This variable is also filled in by the logarithmic Gamma
  * function lgam().
  *
  * Arguments |x| <= 34 are reduced by recurrence and the function
@@ -435,7 +435,7 @@ void fresnl(double xxa, double& ss, double& cc) {
  */
 /*                            lgam()
  *
- *    Natural logarithm of gamma function
+ *    Natural logarithm of Gamma function
  *
  *
  *
@@ -451,11 +451,11 @@ void fresnl(double xxa, double& ss, double& cc) {
  * DESCRIPTION:
  *
  * Returns the base e (2.718...) logarithm of the absolute
- * value of the gamma function of the argument.
- * The sign (+1 or -1) of the gamma function is returned in a
+ * value of the Gamma function of the argument.
+ * The sign (+1 or -1) of the Gamma function is returned in a
  * global (extern) variable named sgngam.
  *
- * For arguments greater than 13, the logarithm of the gamma
+ * For arguments greater than 13, the logarithm of the Gamma
  * function is approximated by the logarithmic version of
  * Stirling's formula using a polynomial approximation of
  * degree 4. Arguments between -33 and +33 are reduced by
@@ -487,8 +487,8 @@ void fresnl(double xxa, double& ss, double& cc) {
  *
  */
 
-/*                            gamma.c    */
-/*    gamma function    */
+/*                            Gamma.c    */
+/*    Gamma function    */
 
 /*
 Cephes Math Library Release 2.8:  June, 2000
@@ -517,7 +517,7 @@ static double Q[] = {
 #define MAXGAM 171.624376956302725
 static double LOGPI = 1.14472988584940017414;
 
-/* Stirling's formula for the gamma function */
+/* Stirling's formula for the Gamma function */
 static double STIR[5] = {
  7.87311395793093628397E-4,
 -2.29549961613378126380E-4,
@@ -551,7 +551,7 @@ return( y );
 }
 
 
-double gamma(double x) {
+double Gamma(double x) {
 double p, q, z;
 int i;
 
@@ -624,8 +624,8 @@ else
 
 
 
-/* A[]: Stirling's formula expansion of log gamma
- * B[], C[]: log gamma function between 2 and 3
+/* A[]: Stirling's formula expansion of log Gamma
+ * B[], C[]: log Gamma function between 2 and 3
  */
 static double A[] = {
  8.11614167470508450300E-4,
@@ -655,7 +655,7 @@ static double C[] = {
 static double LS2PI  =  0.91893853320467274178;
 #define MAXLGM 2.556348e305
 
-/* Logarithm of gamma function */
+/* Logarithm of Gamma function */
 double lgam(double x) {
 double p, q, u, w, z;
 //int i;
@@ -861,7 +861,7 @@ while( t > MACHEP );
 k = int(xk);
 t = n;
 r = n - 1;
-ans = (pow(z, r) * psi / gamma(t)) - ans;
+ans = (pow(z, r) * psi / Gamma(t)) - ans;
 goto done;
 
 /*                            expn.c    */
@@ -922,12 +922,12 @@ return( ans );
 // Cephes Math Library Release 2.8:  June, 2000. Copyright 1984, 1987, 1988, 1992, 2000 by Stephen L. Moshier
 // Returns erf(x) = 2/sqrt(pi) \int_0^x exp(-t*t) dt.
 // For 0 <= |x| < 1, erf(x) = x * P4(x**2)/Q5(x**2); otherwise erf(x) = 1 - erfc(x).
-// Acuracy (relative error): Arithmetic  domain     # trials      peak         rms
+// Accuracy (relative error): Arithmetic  domain     # trials      peak         rms
 //                              IEEE     0,1         30000       3.7e-16     1.0e-16
 //
 // Returns erfc(x) = 1.0-erf(x)
 // For small x, erfc(x) = 1 - erf(x); otherwise rational approximations are computed.
-// Acuracy (relative error): Arithmetic  domain     # trials      peak         rms
+// Accuracy (relative error): Arithmetic  domain     # trials      peak         rms
 //                              IEEE     0,26.6417   30000       5.7e-14     1.5e-14
 //======================================================================================================================
 

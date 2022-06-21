@@ -1,5 +1,5 @@
 ### Gaussian pulse by cylinder diffraction
-### Cylinder geometry 
+### Cylinder geometry
 X                    0.0         # Cylinder center
 Y                    0.0         # Cylinder center
 Radius               0.5         # Cylinder radius
@@ -12,5 +12,5 @@ Radius               0.5         # Cylinder radius
 
 ### Discretization parameters
 NumK               200          # Number of terms in a series by radial wave number
-NumN               200          # Number of terms in a series by asimuthal wave number
+NumN               200          # Number of terms in a series by azimuthal wave number
 #Kmax               30.0         # Maximal radial wave number. Default: 6.0/Bterm

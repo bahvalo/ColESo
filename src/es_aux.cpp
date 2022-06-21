@@ -1,30 +1,15 @@
 // *********************************************************************************************************************
 // *****                                                                                                           *****
 // *****                                  Collection of exact solutions (ColESo)                                   *****
-// *****                                             Outer interface                                               *****
+// *****                            Object-free interface (for use in FORTRAN programs)                            *****
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
-#include "parser.h"
+#include "base_parser.h"
 #include "coleso.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 
 //======================================================================================================================
-// Reading parameters from a file
-//======================================================================================================================
-void tPointFunction::ReadParamsFromFile(const char* fname) {
-    if(fname==NULL) fname = filename();
-    tFileBuffer FB;
-    FB.LoadFile(string(fname), IO_DONTCRASH);
-    ReadParams(FB);
-    FB.PrintUnknownKeywords();
-}
-//======================================================================================================================
-
-//======================================================================================================================
-// Creating object by name
+// Create object by name
 //======================================================================================================================
 #define A(N) if(CompareWords(string(FuncName), string(#N))) return (tPointFunction*) new s_##N
 tPointFunction* CreateFunction(const char* FuncName) {
@@ -63,7 +48,6 @@ tPointFunction* CreateFunction(const char* FuncName) {
     A(FiniteVortex);
     A(SimpleWave);
     A(Blasius);
-    A(comprBlasius);
     A(ConcCyl);
     return NULL;
 }

@@ -5,16 +5,13 @@
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 
-#include "parser.h"
+#include "base_parser.h"
 #include "coleso.h"
 #include "es_utils.h"
 #include "geom_primitive.h"
 #include "es_specfunc.h"
 #include <complex>
 #include <string.h>
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h"
 #endif
@@ -34,15 +31,15 @@ void s_WaveInChannel<fpv>::ReadParams(tFileBuffer& FB) {
     // Geometry parameters
     PM.Request(form, "form");         // 0 - planar channel, 1 - cylindrical channel
     PM.Request(R, "R");               // radius of the cylinder (for form=1)
-    PM.Request(CoorAxis, "CoorAxis"); // axial directon (direction normal to the circle): 0=X, 1=Y, 2=Z
+    PM.Request(CoorAxis, "CoorAxis"); // axial direction (direction normal to the circle): 0=X, 1=Y, 2=Z
     PM.Request(Ymin, "Ymin");         // for planar channel only: channel position
     PM.Request(Ymax, "Ymax");         // for planar channel only: channel position
     // solution parameters
     PM.Request(k, "k");               // axial wave number (real)
-    PM.Request(l, "AsimuthalMode");   // asimuthal wave number (integer, >=0)
+    PM.Request(l, "AzimuthalMode");   // azimuthal wave number (integer, >=0)
     PM.Request(kmode, "RadialMode");  // radial wave number (integer, >=0; used if frequency is not set)
-    PM.Request(ReOmega, "ReOmega");   // real part of frequency (intial value for the iterative process)
-    PM.Request(ImOmega, "ImOmega");   // imaginary part of frequency (intial value for the iterative process)
+    PM.Request(ReOmega, "ReOmega");   // real part of frequency (initial value for the iterative process)
+    PM.Request(ImOmega, "ImOmega");   // imaginary part of frequency (initial value for the iterative process)
     PM.Request(ampl, "ampl");         // total multiplier
     PM.Request(phase, "phase");       // phase shift
     // additional
@@ -75,7 +72,7 @@ struct s_WaveInChannel_PrivateData {
 //======================================================================================================================
 template<typename fpv>
 void s_WaveInChannel<fpv>::Free(void) {
-    if(data!=NULL) FreeMem(data);
+    if(data!=NULL) FreeMemSingle(data);
     data = NULL;
 }
 //======================================================================================================================
@@ -90,7 +87,7 @@ s_WaveInChannel<fpv>& s_WaveInChannel<fpv>::operator=(const s_WaveInChannel<fpv>
     void *srcptr = (void*)&gi;  // копировать по memcpy опасно! (заглушка ворнинга)
     memcpy(dstptr, srcptr, sizeof(s_WaveInChannel<fpv>));
     if(gi.data!=NULL) {
-        data = GimmeMem< s_WaveInChannel_PrivateData<fpv> >(1, "s_WaveInChannel");
+        data = GimmeMemSingle< s_WaveInChannel_PrivateData<fpv> >("s_WaveInChannel");
         *data = *(gi.data);
     }
     return *this;
@@ -418,7 +415,7 @@ void s_WaveInChannel<fpv>::PointValue(fpv t, const fpv* coor, fpv* V) const {
     V[Var_R]         = rho.real();
     V[Var_P]         = p.real();
     V[Var_U+CoorX]   = ux.real(); // in RZ: radial
-    V[Var_U+CoorY]   = uy.real(); // in RZ: asimuthal
+    V[Var_U+CoorY]   = uy.real(); // in RZ: azimuthal
     V[Var_U+CoorZ]   = uz.real();
     V[Var_R+5]       = rho.imag();
     V[Var_P+5]       = p.imag();
@@ -628,7 +625,7 @@ void s_WaveInChannel<fpv>::Init() {
     if(form==1) {
         if(R<=0.) crash("s_WaveInChannel::Init: wrong R=%e", double(R));
         if(CoorAxis<0 || CoorAxis>2) crash("s_WaveInChannel::Init: wrong CoorAxis=%i", CoorAxis);
-        if(l<0) crash("s_WaveInChannel::Init: wrong AsimuthalMode=%i", l);
+        if(l<0) crash("s_WaveInChannel::Init: wrong AzimuthalMode=%i", l);
     }
     if(!IsNaN(_dmumax)) if(_dmumax<=0.) crash("s_WaveInChannel::Init: wrong dmumax=%e", double(_dmumax));
     if((form==1 || form==0) && kmode<0) crash("s_WaveInChannel::Init: wrong RadialMode=%i", kmode);
@@ -707,7 +704,7 @@ int NewtonProcess(s_WaveInChannel<fpv>& S, fpv mu, complex<fpv>& omega, fpv tole
 //======================================================================================================================
 template<typename fpv>
 int s_WaveInChannel<fpv>::SolveEquation(void) {
-    if(data==NULL) data = GimmeMem< s_WaveInChannel_PrivateData<fpv> >(1, "s_WaveInChannel");
+    if(data==NULL) data = GimmeMemSingle< s_WaveInChannel_PrivateData<fpv> >( "s_WaveInChannel");
 
     // Начальное приближение итерационного процесса -- omega для невязкой задачи
     complex<fpv> _I(fpv(0.0), fpv(1.0));
@@ -715,7 +712,7 @@ int s_WaveInChannel<fpv>::SolveEquation(void) {
         data->Omega = complex<fpv>(ReOmega, ImOmega);
     }
     else if(form==1) {
-        if(l<0) crash("s_WaveInChannel::SolveEquation: wrong asimuthal mode %i", l);
+        if(l<0) crash("s_WaveInChannel::SolveEquation: wrong azimuthal mode %i", l);
         if(kmode<0) crash("s_WaveInChannel::SolveEquation: wrong radial mode %i", kmode);
         data->BZ = BesselPrimeZero(l, kmode, loglevel>1); // double precision
         if(IsNaN(data->BZ) || data->BZ<l) crash("s_WaveInChannel::Init: internal error, Zero = %e < l = %i", double(data->BZ), l);
@@ -750,7 +747,7 @@ int s_WaveInChannel<fpv>::SolveEquation(void) {
     const fpv DMU_MIN = IsNaN(_dmumin) ? (sizeof(fpv)==8 ? 1e-5*nu : fpv(1e-10)) : _dmumin;
     fpv dmu = dmumax; // шаг по коэффициенту вязкости
     fpv mu = 0.0; // текущий коэффициент вязкости
-    // если nu=0, то формально решение уже найдено. Но если точность выше двойной, запускаем 1 итерацию для уточнения нуля фукнции Бесселя
+    // если nu=0, то формально решение уже найдено. Но если точность выше двойной, запускаем 1 итерацию для уточнения нуля функции Бесселя
     int finishflag = (nu < 1e-50) && (IsNaN(ReOmega) && IsNaN(ImOmega)) && sizeof(fpv)==8;
     const fpv tolerance = (sizeof(fpv)==32) ? 1e-45 : 1e-12;
     while(!finishflag) {
@@ -841,7 +838,7 @@ template struct s_WaveInChannel<qd_real>;
 // *********************************************************************************************************************
 // *****                                                                                                           *****
 // *****                                             s_VortexInCylinder                                            *****
-// *****           simple partial case of the general solution (zero asimuthal mode, no heat conductivity)         *****
+// *****           simple partial case of the general solution (zero azimuthal mode, no heat conductivity)         *****
 // *****                                                                                                           *****
 // *********************************************************************************************************************
 

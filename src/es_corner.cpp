@@ -7,13 +7,9 @@
 // *********************************************************************************************************************
 
 #include "pointfuncs.h"
-#include "parser.h"
+#include "base_parser.h"
 #include "coleso.h"
-#include "es_utils.h"
 #include "geom_primitive.h"
-#ifdef _NOISETTE
-#include "lib_base.h"
-#endif
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h"
 #endif
@@ -60,11 +56,11 @@ void s_IVP2D<fpv>::ReadParams(tFileBuffer& FB) {
     PM.Request(tSpaceForm<fpv>::r0[1], "Yterm");        // pulse center
     PM.Request(tSpaceForm<fpv>::Aterm, "Aterm");        // pulse amplitude
     PM.Request(tSpaceForm<fpv>::Bterm, "Bterm");        // pulse radius
-    PM.Request((int&)tSpaceForm<fpv>::Form, "Form");    // form of the pulse
+    PM.Request(tSpaceForm<fpv>::Form, "Form", "");      // form of the pulse
     PM.Request(FlowVelX, "FlowVelX");                   // background flow velocity
     PM.Request(FlowVelY, "FlowVelY");                   // background flow velocity
     // Approximation parameters
-    PM.Request(Hmax, "Hmax");                           // maximal radius of the pulse (it is about 0 if r>Hmax*Bterm) 
+    PM.Request(Hmax, "Hmax");                           // maximal radius of the pulse (it is about 0 if r>Hmax*Bterm)
     PM.Request(GI.GR, "GR");                            // number of nodes of Gaussian quadratures
     PM.Request(mm, "mm");                               // number of segments in compound Gaussian quadratures
     PM.ReadParamsFromBuffer(FB);
@@ -101,7 +97,7 @@ inline fpv FindPhiMax(fpv rad, fpv r0, fpv L) {
         else return GetPiNumber<fpv>(); // full intersection
     }
 
-    if(fabs(num) < 0.9*denom) { 
+    if(fabs(num) < 0.9*denom) {
         fpv cosphi = num / denom;
         return acos(cosphi);
     }
@@ -110,7 +106,7 @@ inline fpv FindPhiMax(fpv rad, fpv r0, fpv L) {
         const fpv& x = r0;
         fpv aux = (r+x-L)*(r+x+L)*(L+r-x)*(L+x-r);
         // The condition (aux < 0) is equivalent to (abs(num) > denom)
-        // If (r ~ x >> L), we can't check (abs(num) > denom) directly due to round-up errors 
+        // If (r ~ x >> L), we can't check (abs(num) > denom) directly due to round-up errors
         if(aux < 0.0) {
             if(num > 0.0) return -1.0; // no intersection
             else return GetPiNumber<fpv>(); // full intersection
@@ -132,7 +128,7 @@ inline fpv FindPhiMax(fpv rad, fpv r0, fpv L) {
 // Assume: x>=L, i. e. the center of the circumference is outside the disk
 // Used:
 // a) for a free space problem, 'x' is the distance between the observer and the pulse center, 'L' is the pulse radius
-// b) for a diffraction problem, 'x' is the distance between the observer and the corner vertex, 
+// b) for a diffraction problem, 'x' is the distance between the observer and the corner vertex,
 //      'L' is the diffraction zone radius
 //======================================================================================================================
 template<typename fpv>
@@ -184,8 +180,8 @@ void s_IVP2D<fpv>::CalcIntegralOverPhi(fpv x, fpv r, fpv phimax, fpv* sum, int n
 
 //======================================================================================================================
 // Auxiliary subroutine for s_IVP2D::PointValueAA: calculation of the integral by 'z'
-// Return value: 
-//     sum[0] is the integral value; 
+// Return value:
+//     sum[0] is the integral value;
 //     sum[1] is its derivative by t (i. e. derivative by 'r' multiplied by (1-z^2))
 //     sum[2] is its derivative by x
 //======================================================================================================================
@@ -214,11 +210,11 @@ void s_IVP2D<fpv>::CalcIntegralOverZ(fpv z1, fpv z2, fpv phi, fpv t, fpv x, fpv*
 
 
 //======================================================================================================================
-// Вычисление dphi_max/dz по заданной координате z для случая x>=L
+// Calculation of dphi_max/dz for a given z in the case x>=L
 //======================================================================================================================
 template<typename fpv>
 fpv s_IVP2D<fpv>::GetSlope(fpv z, fpv t, fpv x) const {
-    fpv L = tSpaceForm<fpv>::Bterm * Hmax; // Радиус источника
+    fpv L = tSpaceForm<fpv>::Bterm * Hmax; // Source radius
     fpv r = t*(1-z*z);
     if(x<L) crash("s_IVP2D::GetSlope error: only for the case x >= L");
     double ddr = Find_dPhiMax<fpv>(r, x, L);
@@ -226,16 +222,16 @@ fpv s_IVP2D<fpv>::GetSlope(fpv z, fpv t, fpv x) const {
 }
 
 //======================================================================================================================
-// Нахождение точки в интервале (zl, zr) с заданным наклоном dphi_max/dz = slope методом дихотомического поиска
+// Find the point z \in (zl, zr) with a given 'slope'=dphi_max/dz using dichotomy
 //======================================================================================================================
 template<typename fpv>
 fpv s_IVP2D<fpv>::FindIntermediatePoint(fpv zl, fpv zr, fpv slope, fpv t, fpv x, int numiters) const {
     fpv vl = GetSlope(zl, t, x) - slope;
     fpv vr = GetSlope(zr, t, x) - slope;
-    // если знак функции на обеих концах один и тот же - дихотомия невозможна. 
-    // Но такое бывает, если, например, функция почти тождественный ноль, и из-за арифм. ошибок получаем разные знаки.
-    // Поэтому делаем return, а не crash
-    if((vl>0.0) == (vr>0.0)) return -huge; 
+    // If slopes at the both ends of the interval have the same sign, dichotony is not possible
+    // This may occur, for instance, if the function is about zero for all z, and due to the arithmetic errors we get
+    // different signs. Thus we make return and not crash
+    if((vl>0.0) == (vr>0.0)) return -huge;
     for(int i=0; i<numiters; i++) {
         fpv zmid = 0.5*(zl + zr);
         fpv V = GetSlope(zmid, t, x) - slope;
@@ -248,19 +244,18 @@ fpv s_IVP2D<fpv>::FindIntermediatePoint(fpv zl, fpv zr, fpv slope, fpv t, fpv x,
 
 
 //======================================================================================================================
-// Вычисление волнового потенциала для задачи о распространении локализованного импульса или его дифракции на полупрямой
-// Задача: вычислить интеграл
+// Calculation of wave potential for the problem of localized pulse distribution or its diffraction in corner
+// Task: compute
 // (-1/t) \int\limits_{|r|<t} f(|r+x|) / (2\pi\sqrt{t^2-r^2}) d^2r
-// Выходной массив содержит 3 элемента: значение интеграла и его производные по x и t
+// Result is 3 elements: integral value and its derivative in x and t
 //======================================================================================================================
 template<typename fpv>
 void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
     if(GI.GN==NULL) crash("s_IVP2D::PointValueAA: init not done");
-    fpv L = tSpaceForm<fpv>::Bterm * Hmax; // Радиус источника
-    fpv x = sqrt(SQR(coord[0])+SQR(coord[1])); // Расстояние от центра источника до приёмника
+    fpv L = tSpaceForm<fpv>::Bterm * Hmax; // Source radius
+    fpv x = sqrt(SQR(coord[0])+SQR(coord[1])); // Distance from source center to observer
 
-    const int printfile = 0; // отладочный вывод
-    // вывод phi_max(z) 
+    const int printfile = 0; // Debug output of phi_max(z)
     if(printfile){
         FILE* f = fopen("phimax.dat", "wt");
         for(double z=0.0; z<=1.0; z+=0.001) {
@@ -272,48 +267,48 @@ void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
         fclose(f);
     }
 
-    if(x > t+L) { // сигнал от источника не достиг приёмника
+    if(x > t+L) { // Signal from source has not reached the observer yet
         u[0] = u[1] = u[2] = 0.0;
         return;
     }
-    
-    if(x>L) { // рассматриваем случай x >= L, то есть приёмник находится вне источника
-        // определим границы зон интегрирования
+
+    if(x>L) { // Consider the case x >= L, i. e. observer is outside the source
+        // Determine domain to integrate over
         const fpv frac_phimax = 0.75;
         fpv phimax_max;
 
-        if(t*t > x*x - L*L) { // трёхзонная конфигурация или двухзонная конфигурация с локальным максимумом
-            phimax_max = asin(L/x); // максимальное значение phimax
+        if(t*t > x*x - L*L) { // 3-zone configuration or 2-zone configuration with a local maximum
+            phimax_max = asin(L/x); // maximal value of phimax
         }
-        else { // двухзонная конфигурация без локального максимума
-            phimax_max = acos((t*t+x*x-L*L)/(2*t*x)); // значение phimax в нуле
+        else { // 2-zone configuration without a local maximum
+            phimax_max = acos((t*t+x*x-L*L)/(2*t*x)); // value of phimax at zero
         }
         fpv phimax_maxL = frac_phimax * phimax_max;
         fpv phimax_maxR = phimax_maxL;
-        
-        // решим квадратное уравнение на нахождение внутренней части области интегрирования,
-        // то есть той части, в которой внешним интегралом будет интеграл по z, а внутренним -- интеграл по phi
-        fpv zLL,zRR; 
+
+        // Solving quadratic equation to get the inner part of the integration domain,
+        // i. e. the part where the outer integral will be in z and the inner one in phi
+        fpv zLL,zRR;
         {
             fpv b2 = x*cos(phimax_maxL);
             fpv d4 = b2*b2 - (x*x - L*L);
             if(d4 < 0) crash("s_IVP2D::PointValueAA: internal error, negative determinant");
             fpv rLL = b2 - sqrt(d4);
-            fpv rRR = b2 + sqrt(d4); // трёхзонная конфирурация
-            if(t < x+L) rRR = t; // двухзонная конфигурация
-            // пересчитываем координаты в z
+            fpv rRR = b2 + sqrt(d4); // 3-zone configuration
+            if(t < x+L) rRR = t; // 2-zone configuration
+            // converting to the values of z
             //fpv zL  = rL  > t ? 0.0 : sqrt(1 - rL/t);
             //fpv zR  = rR  > t ? 0.0 : sqrt(1 - rR/t);
             zLL = rLL > t ? fpv(0.0) : sqrt(1 - rLL/t);
             zRR = rRR > t ? fpv(0.0) : sqrt(1 - rRR/t);
         }
 
-        fpv r_coor_max = sqrt(x*x - L*L); // координата максимума phi_max
+        fpv r_coor_max = sqrt(x*x - L*L); // coordinate of the point with phi=phi_max
         fpv z_coor_max = 1 - r_coor_max / t;
         if(z_coor_max >= 0.0) z_coor_max = sqrt(z_coor_max);
         else z_coor_max = 0.0;
-        // ищем точку, в которой наклон dphi_max/dz = -1.0
-        fpv zLLnew = FindIntermediatePoint(z_coor_max, 1.0, -1.0, t, x); 
+        // looking for a point with dphi_max/dz = -1.0
+        fpv zLLnew = FindIntermediatePoint(z_coor_max, 1.0, -1.0, t, x);
         if(zLLnew >= 0.0) zLL = zLLnew;
 
         if(t > x+L) {
@@ -322,18 +317,18 @@ void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
                 fpv zR  = sqrt(1 - (x+L)/t);
                 myslope *= phimax_max / (z_coor_max - zR);
             }
-            fpv zRRnew = FindIntermediatePoint(0.0, z_coor_max, myslope, t, x); 
+            fpv zRRnew = FindIntermediatePoint(0.0, z_coor_max, myslope, t, x);
             if(zRRnew >= 0.0) zRR = zRRnew;
         }
 
-        { // пересчитываем phimax_maxL
+        { // recalculating phimax_maxL
             fpv r = t*(1-zLL*zLL);
             phimax_maxL = acos((r*r+x*x-L*L)/(2*r*x));
             r = t*(1-zRR*zRR);
             phimax_maxR = acos((r*r+x*x-L*L)/(2*r*x));
         }
 
-        // заплатка: всё считаем с внешним интегралом по z
+        // workaround: calculate all with the outer integral in z
         //zLL = zL; zRR = zR;
 
         fpv summ[3] = {0.0, 0.0, 0.0};
@@ -372,7 +367,7 @@ void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
                 if(zRR - zrr < tiny) continue;
                 fpv val[3];
                 CalcIntegralOverZ(zrr, zRR, phi, t, x, val, mm);
-                for(int k=0; k<3; k++) 
+                for(int k=0; k<3; k++)
                     summ1[k] += dphi * GI.GC[i] * val[k];
             }
         }
@@ -392,7 +387,7 @@ void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
                 if(zll - zLL < tiny) continue;
                 fpv val[3];
                 CalcIntegralOverZ(zLL, zll, phi, t, x, val, mm);
-                for(int k=0; k<3; k++) 
+                for(int k=0; k<3; k++)
                     summ2[k] += dphi * GI.GC[i] * val[k];
             }
         }
@@ -440,7 +435,7 @@ void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
                     fpv val[3] = {0.0, 0.0, 0.0};
                     if(zL - zR < tiny) continue;
                     CalcIntegralOverZ(zR, zL, phi, t, x, val, mm);
-                    for(int k=0; k<3; k++) 
+                    for(int k=0; k<3; k++)
                         summ1[k] += dphi * GI.GC[i] * val[k];
                 }
             }
@@ -458,7 +453,7 @@ void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
                 rR = t;
             }
             fpv zR = sqrt(1 - rR/t); // пересчитываем в z
-            
+
             // первая часть интервала
             fpv dz = zR / fpv(mm);
             for(int j=0; j<mm; j++) {
@@ -502,7 +497,8 @@ void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
 
 
 //======================================================================================================================
-// Вычисление волнового потенциала для задачи о распространении локализованного импульса или его дифракции на полупрямой
+// Calculation of the wave potential for the following problem: 
+// evolution of a localized pulse of an arbitrary form
 //======================================================================================================================
 template<typename fpv>
 void s_IVP2DWP<fpv>::PointValue(fpv t, const fpv* coord, fpv* uex) const {
@@ -513,10 +509,10 @@ void s_IVP2DWP<fpv>::PointValue(fpv t, const fpv* coord, fpv* uex) const {
 
 
 //======================================================================================================================
-// Задача: вычислить интеграл
+// Task: canclulate
 // \int\limits_{|r|<t} f(|r-r0|) / \sqrt{t^2-r^2} d^2r
-// Здесь начало координат помещено в точку, где вычисляется решение;
-// r0 - вектор до источника
+// Here origin is the observer point,
+// r0 is the vector to the source center
 //======================================================================================================================
 template<typename fpv>
 void s_IVP2D<fpv>::PointValue(fpv t, const fpv* coord, fpv* uex) const {
@@ -607,14 +603,14 @@ void s_CornerPlanar::Init() {
 //======================================================================================================================
 
 
-tFixArray<double,1> s_CornerPlanar_func_0(double, void*) { tFixArray<double,1> f; f[0]=1.0; return f; }
-tFixArray<double,1> s_CornerPlanar_func_1(double eta, void*) { tFixArray<double,1> f; f[0] = 1./(eta+1); return f; }
+tFixBlock<double,1> s_CornerPlanar_func_0(double, void*) { tFixBlock<double,1> f; f[0]=1.0; return f; }
+tFixBlock<double,1> s_CornerPlanar_func_1(double eta, void*) { tFixBlock<double,1> f; f[0] = 1./(eta+1); return f; }
 
-tFixArray<double,1> s_CornerPlanar_func(double omega, void* args) {
+tFixBlock<double,1> s_CornerPlanar_func(double omega, void* args) {
     static const double two_over_pi = 2./PiNumber;
     double aomega   = ((double*)args)[0] * omega;   // alpha * omega
     double apbomega = ((double*)args)[1] * omega; // (alpha+beta)*omega
-    
+
     NativeDouble fc = 1.0, fs = 0.0;
     if(aomega > 1e-100) {
         const double a = sqrt(two_over_pi * aomega);
@@ -622,7 +618,7 @@ tFixArray<double,1> s_CornerPlanar_func(double omega, void* args) {
         fs /= NativeDouble(a); fc /= NativeDouble(a);
     }
 
-    tFixArray<double,1> f;
+    tFixBlock<double,1> f;
     // f = Re (1 + i) (fc - i*fs) * (cos + i*sin)
     f[0] = cos(apbomega) * (fc+fs) + sin(apbomega) * (fs-fc);
     return f;
@@ -642,12 +638,13 @@ double s_CornerPlanar::EvalJ0(double a, double b, const tCompoundGaussIntegrator
     if(!mode) {
         double eta0 = (a<1e-80) ? (1e50*SIGN(b)) : (b/a);
         double etamin = (a<1e-80) ? 0.0 : MAX(0.0, (b - H) / a);
-        tFixArray<double,1> I = GI.Integrate(0.0, 1e50, a, eta0, 0, 1, 1.0, 1./(etamin+1.0), s_CornerPlanar_func_1, NULL);
+        tFixBlock<double,1> I;
+        I = GI.Integrate(0.0, 1e50, a, eta0, 0, 1, 1.0, 1./(etamin+1.0), s_CornerPlanar_func_1, NULL);
         return I[0] / PiNumber;
     }
     else {
         double args[2] = {a, a+b};
-        tFixArray<double,1> I = GI.Integrate(0.0, 1e50, 1.0, 0.0, 1, 1, 1.0, 39., s_CornerPlanar_func, args);
+        tFixBlock<double,1> I = GI.Integrate(0.0, 1e50, 1.0, 0.0, 1, 1, 1.0, 39., s_CornerPlanar_func, args);
         return exp(-0.5*SQR(a+b)) - 2./PiNumber * sqrt(a) * I[0];
     }
 }
@@ -701,7 +698,7 @@ void s_CornerPlanar::PointValue(double t, const double* coord, double* uex) cons
         if(n==1 && r>tiny*tiny) { // 1/sqrt{r} term - only for half-line case
             double delta = alpha0*a;
             // Calculation of  E(delta) = int_{0}^{infty} exp(-(x-delta)^2/2) x^{-1/2} dx
-            tFixArray<double,1> I = GI.Integrate(0.0, 1e50, 1.0, delta, 0, 1, 1.0, 0.0, s_CornerPlanar_func_0, NULL);
+            tFixBlock<double,1> I = GI.Integrate(0.0, 1e50, 1.0, delta, 0, 1, 1.0, 0.0, s_CornerPlanar_func_0, NULL);
             double E = I[0] / sqrt(2.*alpha0*PiNumber*PiNumber*r);
             dur   += E * cos(0.5*psi);
             duphi -= E * sin(0.5*psi);
@@ -735,7 +732,7 @@ void s_Corner<fpv>::ReadParams(tFileBuffer& FB) {
     PM.Request(tSpaceForm<fpv>::Bterm, "Bterm");        // pulse radius
     PM.Request(angle, "angle"); // corner angle. Must be 2*PI/n with a natural n
     // Approximation parameters
-    PM.Request(Hmax, "Hmax");                           // maximal radius of the pulse (it is about 0 if r>Hmax*Bterm) 
+    PM.Request(Hmax, "Hmax");                           // maximal radius of the pulse (it is about 0 if r>Hmax*Bterm)
     PM.Request(GI.GR, "GR");                            // number of nodes of Gaussian quadratures
     PM.Request(mm, "mm");                               // number of segments in compound Gaussian quadratures
     PM.ReadParamsFromBuffer(FB);
@@ -768,22 +765,22 @@ void s_Corner<fpv>::Init() {
 
 
 //======================================================================================================================
-// Пересечение интервалов (a,b) и (c,d) на окружности
-// Предполагается, что 0 < b-a < 2*Pi, 0 < d-c < 2*Pi
-// Возвращает количество интервалов в пересечении (от 0 до 2) и их пределы (не более 4 чисел)
+// Intersection of intervals (a,b) and (c,d) on a circle
+// Assumptions: 0 < b-a < 2*Pi, 0 < d-c < 2*Pi
+// Returns the intervals in the intersection (0 or 1 or 2) and their boundaries (up to 4 numbers)
 //======================================================================================================================
 template <class fpv>
 int IntersectArcs(fpv a, fpv b, fpv c, fpv d, fpv* limits) {
-    // начало первого интервала должно быть раньше начала второго
+    // if the second interval starts before the first one, swap the intervals
     if(c < a) { SWAP(a, c); SWAP(b, d); }
-    // приводим начало второго интервала к (a, 2*Pi + a)
+    // reduce the beginning of the second interval to (a, 2*Pi + a)
     const fpv _2pi = GetPiNumber2<fpv>(); // 2*Pi
     while(c >= _2pi + a) { c -= _2pi; d -= _2pi; }
 
     if(b < c) {
         d -= _2pi;
         if(d < a) return 0;
-        *(limits++) = a; *(limits++) = MIN(b, d); 
+        *(limits++) = a; *(limits++) = MIN(b, d);
         return 1;
     }
     else {
@@ -797,11 +794,11 @@ int IntersectArcs(fpv a, fpv b, fpv c, fpv d, fpv* limits) {
 
 
 //======================================================================================================================
-// Вспомогательная процедура
-// u[0] -- значение интеграла
-// u[1] -- значение интеграла от функции, продифференцированной по t
-// u[2] -- значение интеграла от функции, продифференцированной по r
-// u[3] -- corrected значение интеграла от функции, продифференцированной по phi
+// Auxiliary subroutine
+// u[0] -- value of the integral
+// u[1] -- value of the integral of the time derivative
+// u[2] -- value of the integral of the derivative in r
+// u[3] -- corrected value of the integral of the derivative in phi
 //======================================================================================================================
 template<typename fpv>
 void s_Corner<fpv>::CalcIntOverZ_NEW(fpv z1, fpv z2, fpv alpha, fpv t, fpv r, fpv rs, fpv hatPhi, fpv* u) const {
@@ -853,14 +850,14 @@ void s_Corner<fpv>::CalcIntOverZ_NEW(fpv z1, fpv z2, fpv alpha, fpv t, fpv r, fp
 
 
 //======================================================================================================================
-// Вспомогательная процедура
-// u[0] -- значение интеграла
-// u[1] -- производная по t
-// u[2] -- производная по r
-// u[3] -- corrected производная по phi
-// Входные параметры:
-// phi1, phi2 -- пределы интегрирования
-// t, R, r, rs, hatPhi -- параметры (см. мат. описание)
+// Auxiliary subroutine
+// u[0] -- value of the integral
+// u[1] -- value of the integral of the time derivative
+// u[2] -- value of the integral of the derivative in r
+// u[3] -- corrected value of the integral of the derivative in phi
+// Input:
+// phi1, phi2 -- integration limits
+// t, R, r, rs, hatPhi -- parameters (see math. documentation)
 //======================================================================================================================
 template<typename fpv>
 void s_Corner<fpv>::CalcIntOverPhi_NEW(fpv phi1, fpv phi2, fpv t, fpv R, fpv r, fpv rs, fpv hatPhi, fpv* u) const {
@@ -881,8 +878,8 @@ void s_Corner<fpv>::CalcIntOverPhi_NEW(fpv phi1, fpv phi2, fpv t, fpv R, fpv r, 
         fpv cosmax;
         if(denom < fabs(num)) cosmax = SIGN(num);
         else cosmax = num / denom;
-        fpv acosinus = acos(cosmax);
-        numlimits = IntersectArcs(PHI1 - acosinus, PHI1 + acosinus, phi1, phi2, limits);
+        fpv acosine = acos(cosmax);
+        numlimits = IntersectArcs(PHI1 - acosine, PHI1 + acosine, phi1, phi2, limits);
     }
     for(int il=0; il<numlimits; il++) {
         const fpv dalpha = (limits[il*2+1]-limits[il*2]) / this->mm;
@@ -906,7 +903,7 @@ void s_Corner<fpv>::CalcIntOverPhi_NEW(fpv phi1, fpv phi2, fpv t, fpv R, fpv r, 
 }
 
 //======================================================================================================================
-// Вспомогательная процедура
+// Auxiliary subroutine
 // Returns 1 if no intersection
 // mode: 0 - intersection with circumference (for boundary integral), 1 - intersection with disk (for 2D integral)
 //======================================================================================================================
@@ -917,7 +914,7 @@ int BoundPhiZone(fpv r0, fpv rs, fpv L, fpv hatPhi, fpv& psimin, fpv& psimax, in
     fpv b = 2.0 * r0 * rs;
     fpv amb = SQR(r0 - rs); // a-b
     fpv L2 = L*L; // L^2
-    fpv buf; 
+    fpv buf;
     if(mode==1 && r0*r0 > rs*rs - L2) {
         buf = asin(L / rs); // if rs < L then there was a return statement above
     }
@@ -952,17 +949,17 @@ int BoundPhiZone(fpv r0, fpv rs, fpv L, fpv hatPhi, fpv& psimin, fpv& psimax, in
 
 
 //======================================================================================================================
-// Основная процедура для вычисления точного решения задачи о дифракции гауссового импульса на полупрямой
-// Вход:
-//   t, coor -- время и координаты точки
-//   inv      -- 0: вычисление сигнала от действительного источника, 1: от мнимого, -1: от всех источников
-//   clear    -- 0: запись в выходные массивы, 1: инкремент в выходные массивы
-// Выход:
-//   u[0] -- вычисляет Q = W/t, где W -- волновой потенциал
-//   u[1] -- вычисляет производную по t от Q
-//   u[2] -- вычисляет производную по coord[0] от Q
-//   u[3] -- вычисляет производную по coord[1] от Q
-// Если uu!=NULL, то для каждого u[i] возвращает его четыре составляющие (итого 16 значений)
+// Main subroutine to calculate the solution for Gaussian pulse on half-line diffraction
+// Input:
+//   t, coor -- time and coordinates
+//   inv     -- 0: cancluation of the signal from a real source, 1: from an imaginary source, -1: from all sources
+//   clear   -- 0: write to the output array, 1: increment to the output array
+// Output:
+//   u[0] -- Q = W/t, where W is the wave potential
+//   u[1] -- dQ/dt
+//   u[2] -- dQ/d(coord[0])
+//   u[3] -- dQ/d(coord[1])
+// If uu!=NULL, then for each u[i] returns its four terms (16 values total)
 //======================================================================================================================
 template<typename fpv>
 void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear, fpv* _uu) const {
@@ -980,7 +977,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
     if(inv==-1) {
         for(int i=0; i<2*n; i++)
             MainFunc(t, coor, u, i, 0, _uu);
-        if(fabs(coor[0])+fabs(coor[1]) < tiny_loc) u[Var_U] = u[Var_V] = 0.0;
+        if(fabs(coor[0])+fabs(coor[1]) < tiny_loc) u[2] = u[3] = 0.0;
         return;
     }
     if(inv<0 || inv>=2*n) crash("s_Corner<fpv>::MainFunc error: wrong source number %i", inv);
@@ -1011,7 +1008,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
     phis += fpv(inv >> 1) * fpv(2.0*angle);
     if(inv&1) phis = 4.0*_PiNumber - phis;
 
-    // Разность углов между направлением на наблюдателя и направлем на центр мнимого источника. В тексте: \Phi
+    // Разность углов между направлением на наблюдателя и направлением на центр мнимого источника. В тексте: \Phi
     fpv Phi = phi_observer - phis; // (-4*Pi, 2*Pi)
     if(Phi < 0.0) Phi += 4.*_PiNumber; // (0, 4*Pi)
     // Определяем точку Pi*J, лежащую в диапазоне (Phi-Pi/2, Phi+Pi/2). В тексте: J
@@ -1022,7 +1019,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
     else if(Phi < 2.5*_PiNumber) { J = 2; gp = gm = 0; }
     else if(Phi < 3.5*_PiNumber) { J = 3; gm = 0; }
 
-    // Радиус дифракционной зоны, т. е. множества точек, 
+    // Радиус дифракционной зоны, т. е. множества точек,
     // расположенный в которых импульс к моменту времени t достигнет наблюдателя через вершину полупрямой
     fpv difr_zone_radius = t - dist_observer_vertex;
     // Ширина источника (т. е. расстояние от его центра, на котором наличием импульса можно пренебречь
@@ -1045,7 +1042,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
         fpv zmin = sqrt(1.0 - rmax/t);
         fpv zmax = sqrt(1.0 - rmin/t);
 
-        const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0; 
+        const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0;
         const fpv hatPhi = _PiNumber - PhiHatSign * Phi; // In text: \hat{\Phi}
 
         const fpv dz = (zmax - zmin)/ fpv(mm);
@@ -1065,7 +1062,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
         uu[8+ilight]  += cosphi * sum1[2] - sinphi * sum1[3];
         uu[12+ilight] += sinphi * sum1[2] + cosphi * sum1[3];
     }
-    
+
     // если дифракционная зона отсутствует, всё уже сделано
     if(t <= dist_observer_vertex) goto fin;
 
@@ -1101,11 +1098,11 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
                 fpv mult = 2. / (_Pi2 * sqrt(1.+R)) * R * dz * this->GI.GC[i];
                 for(int ilight=0; ilight<=1; ilight++) {
                     fpv summLoc[4];
-                    const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0; 
+                    const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0;
                     const fpv hatPhi = _PiNumber - PhiHatSign * Phi; // In text: \hat{\Phi}
                     CalcIntOverPhi_NEW(0.0, phimax, t, R, dist_observer_vertex, dist_src_vertex, hatPhi, summLoc);
                     summLoc[3] *= -PhiHatSign;
-                    for(int k=0; k<4; k++) 
+                    for(int k=0; k<4; k++)
                         (ilight ? sumMinus2 : sumPlus2)[k] += summLoc[k] * mult;
                 }
             }
@@ -1124,7 +1121,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
             // корректируем с учётом финитности начальных данных
             fpv ymin = 0.0, ymax = ymax_dz;
 
-            const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0; 
+            const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0;
             const fpv hatPhi = _PiNumber - PhiHatSign * Phi; // In text: \hat{\Phi}
 
             const fpv coshatPhi = cos(hatPhi), sinhatPhi = sin(hatPhi);
@@ -1176,7 +1173,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
                     val[3] = 2.*dF * deltay;
                     val[3] *= -PhiHatSign;
 
-                    for(int k=0; k<4; k++) 
+                    for(int k=0; k<4; k++)
                         _sum[k] += val[k] / (t * sq) * this->GI.GC[ix] * dx;
                 }
 
@@ -1204,7 +1201,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
         for(int ilight=0; ilight<2; ilight++) {
             fpv sum2[4] = {0.,0.,0.,0.};
 
-            const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0; 
+            const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0;
             const fpv hatPhi = _PiNumber - PhiHatSign * Phi; // In text: \hat{\Phi}
 
             // считаем внешние интегралы: внешний интеграл по phi, внутренний по r
@@ -1253,12 +1250,12 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
             uu[14+ilight] += sinphi * sum2[2] + cosphi * sum2[3];
         }
 #else // NEW VARIANT
-        const fpv t_over_r_minus_1 = t / dist_observer_vertex - 1.0;
+        const fpv t_over_r_minus_1 = (dist_observer_vertex<t*1e-70) ? 1e70 : t / dist_observer_vertex - 1.0;
         for(int ilight=0; ilight<2; ilight++) {
             if(t_over_r_minus_1 < get_min_value<fpv>()) continue; // do nothing
             fpv sum2[4] = {0.,0.,0.,0.};
 
-            const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0; 
+            const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0;
                   fpv hatPhi = _PiNumber - PhiHatSign * Phi; // In text: \hat{\Phi}
             const fpv coshatPhi = cos(hatPhi), sinhatPhi = sin(hatPhi);
             while(hatPhi<0.0)  hatPhi += _Pi2;
@@ -1282,11 +1279,11 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
 
                 fpv ximin = atan(cospsi / sqrt(t_over_r_minus_1*(t_over_r_minus_1+2.0)));
                 fpv ximax = atan((t_over_r_minus_1 + cospsi) / (2.0*sinpsi2*sqrt(t_over_r_minus_1)));
-                
+
                 do { // we don't need precision here
                     if(b < get_min_value<fpv>()) break;
                     fpv cospp = cospsi * coshatPhi + sinpsi * sinhatPhi; // cos(psi - hat{Phi})
-                    fpv sinpp = sinpsi * coshatPhi - cospsi * sinhatPhi; // sin(psi - hat{Phi}) 
+                    fpv sinpp = sinpsi * coshatPhi - cospsi * sinhatPhi; // sin(psi - hat{Phi})
                     //fpv rmin = dist_src_vertex-L;
                     //fpv rmax = dist_src_vertex+L;
                     fpv aux = L*L - SQR(dist_src_vertex*sinpp);
@@ -1347,7 +1344,7 @@ void s_Corner<fpv>::MainFunc(fpv t, const fpv* coor, fpv* u, int inv, int clear,
 
     if(n==1) { // Boundary integrals: half-line case only
         for(int ilight=0; ilight<2; ilight++) {
-            const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0; 
+            const fpv PhiHatSign = (ilight ^ (J&1)) ? -1.0 : 1.0;
             const fpv hatPhi = _PiNumber - PhiHatSign * Phi; // In text: \hat{\Phi}
 
             int nmm_local = 5*this->mm; // no ideas why here the number of intervals should be greater than in other integral approximations
@@ -1399,8 +1396,8 @@ fin:
 }
 
 //======================================================================================================================
-// Задача Зоммерфельда о дифракции на полупрямой
-// Вычисление волнового потенциала
+// Sommerfeld problem of the diffraction on a half-line
+// Calculation of the wave potential
 //======================================================================================================================
 template<typename fpv>
 void s_CornerWP<fpv>::PointValue(fpv t, const fpv* coor, fpv* V) const {
@@ -1421,30 +1418,30 @@ void s_CornerWP<fpv>::PointValue(fpv t, const fpv* coor, fpv* V) const {
 
 
 //======================================================================================================================
-// Задача Зоммерфельда о дифракции на полупрямой
+// Sommerfeld problem of the diffraction on a half-line
 // Front-end
 //======================================================================================================================
 template<typename fpv>
 void s_Corner<fpv>::PointValue(fpv T, const fpv* coor, fpv* uex) const {
-    // Если время слишком маленькое, то получаем решение разложением в ряд Тейлора вблизи нуля
-    // Так как время маленькое, то наличие полупрямой можно не учитывать
+    // If time is too small, then the solution is by the Taylor series at t=0
+    // Since time is small, we don't take into account the presence of the half-line
     static const fpv timemin = pow_to_const_int<sizeof(fpv)/8>(1e-6);
     if(T < tSpaceForm<fpv>::Bterm * timemin) {
         PointValueTaylor(T, coor, uex, (tSpaceForm<fpv>&)(*this));
-        uex[Var_W] = 0.0; // PointValueTaylor возвращает тут волновой потенциал, затираем его
+        uex[Var_W] = 0.0; // PointValueTaylor returns the wave potential at this position, removing
         return;
     }
 
     #if 1
         fpv summs[4];
-        MainFunc(T, coor, summs); // -W/t, производная по t от (-W/t), производная по x от (-W/t) и производная по y
+        MainFunc(T, coor, summs); // -W/t, derivative of (-W/t) in t, derivatives of (-W/t) in x and in y
 
         uex[Var_R] = uex[Var_P] = summs[0] + summs[1] * T;
         uex[Var_U] = - summs[2] * T;
         uex[Var_V] = - summs[3] * T;
         uex[Var_W] = 0.0;
     #else
-        // отладочный вариант: дифференцируем волновой потенциал
+        // debug mode: numerical differentiation of the wave potential
         const fpv eps = sizeof(fpv)==8 ? 1e-6 : 1e-30;
 
         fpv summs[4], summ1, summ2;
@@ -1458,13 +1455,13 @@ void s_Corner<fpv>::PointValue(fpv T, const fpv* coor, fpv* uex) const {
 
         fpv CV[2] = {coor[0], coor[1]+eps};
         MainFunc(T, CV, summs); summ2 = summs[0] * T;
-        uex[Var_V] = - (summ2 - summ1) / eps; 
+        uex[Var_V] = - (summ2 - summ1) / eps;
         uex[Var_W] = 0.0;
     #endif
 }
 //======================================================================================================================
 
-// Сообщаем компилятору о желании иметь функции нужных нам типов
+// Instantiation of template classes 
 template struct s_IVP2D<double>;
 template struct s_Corner<double>;
 template struct s_IVP2DWP<double>;
