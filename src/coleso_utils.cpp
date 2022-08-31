@@ -55,7 +55,9 @@ tFixBlock<fpv,N> tCompoundGaussIntegrator<fpv>::Integrate(fpv xmin, fpv xmax, fp
             for(int j=0; j<GJI.GR; j++) {
                 fpv x = GJI.GN[j]*xminus;
                 fpv tmp = alpha * (x-x0);
-                sum += func(x, args) * exp(-0.5*tmp*tmp) * pow(x-x0, double(k)) * GJI.GC[j];
+                fpv pow_x_x0_k = 1.0;
+                for(int ik=0; ik<k; ik++) pow_x_x0_k *= (x-x0);
+                sum += func(x, args) * exp(-0.5*tmp*tmp) * pow_x_x0_k * GJI.GC[j];
             }
             sum *= sqrt(xminus);
         }
@@ -69,7 +71,9 @@ tFixBlock<fpv,N> tCompoundGaussIntegrator<fpv>::Integrate(fpv xmin, fpv xmax, fp
         for(int j=0; j<GLI.GR; j++) {
             fpv x = xminus + (i + GLI.GN[j]) * dx;
             fpv tmp = alpha * (x-x0);
-            fpv f = exp(-0.5*tmp*tmp) * pow(x-x0, double(k));
+            fpv pow_x_x0_k = 1.0;
+            for(int ik=0; ik<k; ik++) pow_x_x0_k *= (x-x0);
+            fpv f = exp(-0.5*tmp*tmp) * pow_x_x0_k;
             if(mode) f /= sqrt(x);
             sum += func(x, args) * (f * GLI.GC[j] * dx);
         }

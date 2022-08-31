@@ -10,6 +10,10 @@ Changes for 1.1  (21.06.2022)
     s_ViscShock admits \mu=const, Pr=3/4 or Pr=infty with any rhoL/rhoR
     bug fixes
 
+Changes for 1.2  (31.08.2022)
+    Critical fix for Gaussian2D in DD and QD precision
+    Small documentation fixes
+
 
 Known issues:
 1. s_WaveInChannel, the case of a planar channel. Only even (symmetric w.r.t. channel center) are implemented.
