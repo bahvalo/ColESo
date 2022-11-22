@@ -25,7 +25,7 @@ tPointFunction* CreateFunction(const char* FuncName) {
     A(Cylinder);
     A(IVP2D)<double>;
     A(Corner)<double>;
-    A(CornerPlanar);
+    A(CornerPlanar)<double>;
     A(Source1D)<double>;
     A(Source3D)<double>;
     A(Source2D);
@@ -59,7 +59,7 @@ static vector<tPointFunction*> VPF;
 extern "C" {
     void coleso_add_function(char* FUNCNAME, int* ID) {
         tPointFunction* F = CreateFunction(FUNCNAME);
-        if(F==NULL) { 
+        if(F==NULL) {
             if(ID) *ID=-1;
         }
         else {

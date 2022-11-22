@@ -22,26 +22,30 @@ template<typename fpv>
 struct s_Gaussian2D : tPointFunction_EP<fpv>, tSpaceForm<fpv> {
     DESCRIPTION("Gaussian pulse 2D");
 //======================================================================================================================
-    fpv FlowVelX, FlowVelY, FlowVelZ; // Background flow
-
+    fpv FlowVelX, FlowVelY, FlowVelZ, SoundSpeed; // Background flow
 protected:
-    tCompoundGaussIntegrator<fpv> GI;
-
+    tGaussIntegrator<fpv> GLI, GJI, GLAI; // Gauss-Legendre, Gauss-Jacobi, and Gauss-Laguerre integrators
+    fpv H;
+    NativeDouble R1, R2;
 public:
     tFuncType Type() const OVERRIDE { return FUNC_PULSATIONS; } // поскольку наследуем напрямую tPointFunction_EP, указываем тип
-    s_Gaussian2D():tSpaceForm<fpv>() { 
-        FlowVelX=FlowVelY=FlowVelZ=0.0; 
-        tSpaceForm<fpv>::numCoords = 2; // для правильной нормировки амплитуды источника
-    }
+    int gr; // number of nodes for Gaussian quadrature rules. May be changed before Init()
+    inline int num_points_default() { return int(-1.156*log(NativeDouble(get_eps<fpv>())))+2; }
+    s_Gaussian2D();
 
     const char* filename() const { return "es_gaussian2d.txt"; }
     void ReadParams(tFileBuffer&) OVERRIDE;
-    void CalcDirect(fpv t, fpv r, fpv& p, fpv& ur) const;
-    //void CalcViaFI(fpv t, fpv r, fpv& p, fpv& ur) const;
-    void CalcViaFourier(fpv t, fpv r, fpv& p, fpv& ur) const;
-    void CalcViaBesselFourier(fpv t, fpv r, fpv& p, fpv& ur) const;
     void Init(void);
-    void PointValue(fpv t, const fpv* coor, fpv* V) const; 
+    void PointValue(fpv t, const fpv* coor, fpv* V) const;
+
+    // Main subroutine that chooses a particular method to calculate the solution for one initial pulse
+    void get_solution(fpv t, fpv r, fpv& p, fpv& ur) const;
+    // Particular methods applicable for different ranges of t and r
+    void CalcViaDirect_GaussLaguerre(const fpv& t, const fpv& r, fpv& p, fpv& ur) const;
+    void CalcViaBesselFourier_GaussLedengre(const fpv& t, const fpv& r, fpv& p, fpv& ur) const;
+    void CalcViaFourier_GaussJacobi(const fpv& t, const fpv& r, fpv& p, fpv& ur) const;
+    void CalcViaFourier_uniform(const fpv& t, const fpv& r, fpv& p, fpv& ur) const;
+    void CalcAsymptSeries(const fpv& t, const fpv& r, fpv& p, fpv& ur) const;
 };
 //======================================================================================================================
 
@@ -50,13 +54,13 @@ public:
 struct s_Gaussian3D : tPulsFunction, tSpaceForm<double> {
     DESCRIPTION("Gaussian pulse 3D");
 //======================================================================================================================
-    double FlowVelX, FlowVelY, FlowVelZ; // Скорость фонового потока
-    s_Gaussian3D():tSpaceForm<double>() { FlowVelX=FlowVelY=FlowVelZ=0.0; }
+    double FlowVelX, FlowVelY, FlowVelZ, SoundSpeed; // Background flow
+    s_Gaussian3D():tSpaceForm<double>() { FlowVelX=FlowVelY=FlowVelZ=0.0; SoundSpeed=1.0; }
     const char* filename() const { return "es_gaussian3d.txt"; }
     void ReadParams(tFileBuffer&) OVERRIDE;
     void CalcValues(double t, double x, double y, double z, double* uex) const;
     void Init(void);
-    void PointValue(double t, const double* coor, double* V) const; 
+    void PointValue(double t, const double* coor, double* V) const;
 };
 //======================================================================================================================
 
@@ -78,7 +82,7 @@ struct s_EntropyVortex : tPulsFunction {
     }
     const char* filename() const OVERRIDE { return "es_entropyvortex.txt"; }
     void ReadParams(tFileBuffer&) OVERRIDE;
-    void PointValue(double t, const double* coor, double* V) const; 
+    void PointValue(double t, const double* coor, double* V) const;
 };
 //======================================================================================================================
 
@@ -94,7 +98,7 @@ struct s_Planar : tPulsFunction { // abstract class - for PlanarGauss and Planar
     double RhoRef, URef[3], PRef, gam;
 // For channel: Rmax
     double Rmax;
-    s_Planar() { Aterm = 1.0; Xterm = Yterm = Zterm = 0.0; Dir[0] = 1.0; Dir[1] = Dir[2] = 0.0; gam = 1.4; 
+    s_Planar() { Aterm = 1.0; Xterm = Yterm = Zterm = 0.0; Dir[0] = 1.0; Dir[1] = Dir[2] = 0.0; gam = 1.4;
                  RhoRef = 1.0; URef[0] = URef[1] = URef[2] = 0.0; PRef = 1.0 / gam; Rmax = huge;}
     const char* filename() const OVERRIDE { return "es_planar.txt"; }
     void ReadParams(tFileBuffer& FB) OVERRIDE;
@@ -105,7 +109,7 @@ struct s_Planar : tPulsFunction { // abstract class - for PlanarGauss and Planar
 //======================================================================================================================
 struct s_PlanarSinus : s_Planar{
     DESCRIPTION("planar wave (sinus profile)");
-//====================================================================================================================== 
+//======================================================================================================================
     double Freq;
     double Phase;
     int AllowNegativePhase;
@@ -119,9 +123,9 @@ struct s_PlanarSinus : s_Planar{
 //======================================================================================================================
 struct s_PlanarGauss : s_Planar {
     DESCRIPTION("planar wave (Gaussian profile)");
-//====================================================================================================================== 
+//======================================================================================================================
     double Bterm;
-    double NormalDistance;  
+    double NormalDistance;
     s_PlanarGauss() { Bterm = 1.0; NormalDistance = huge; }
     const char* filename() const OVERRIDE { return "es_planargauss.txt"; }
     void ReadParams(tFileBuffer& FB) OVERRIDE;
@@ -132,7 +136,7 @@ struct s_PlanarGauss : s_Planar {
 //======================================================================================================================
 struct s_Coaxial : tComplexPulsFunction {
     DESCRIPTION("acoustic mode in cylinder or between coaxial cyl-s");
-//====================================================================================================================== 
+//======================================================================================================================
     double FlowVel, SoundVel; // скорость потока и звука в канале
     int AzimuthalMode, RadialMode; // azimuthal and radial modes
     double rmin, rmax, kz; // cylinder radii; axial wave number
@@ -141,9 +145,9 @@ struct s_Coaxial : tComplexPulsFunction {
     int CoorAxis; // cylinder axis: 0 - X, 1 - Y, 2 - Z
 
     s_Coaxial() {
-        rmin=1.0; rmax=2.0; kz=0.0; MakeNaN(kr); 
-        AzimuthalMode = 8; RadialMode=0; Ampl=1.0; phase=0.0; 
-        SoundVel=1.0; FlowVel=0.0; 
+        rmin=1.0; rmax=2.0; kz=0.0; MakeNaN(kr);
+        AzimuthalMode = 8; RadialMode=0; Ampl=1.0; phase=0.0;
+        SoundVel=1.0; FlowVel=0.0;
         CoorAxis = 2;
     }
     const char* filename() const OVERRIDE { return "es_coaxial.txt"; }
@@ -181,7 +185,7 @@ struct s_SinusVisc : tPulsFunction {
     }
 
     void ReadParams(tFileBuffer& FB) OVERRIDE;
-    void Init(void) OVERRIDE; 
+    void Init(void) OVERRIDE;
     void PointValue(double t, const double* coor, double* V) const;
 };
 //======================================================================================================================
@@ -235,7 +239,7 @@ private:
     tGaussIntegrator<double> GI;
 
 public:
-    s_Cylinder() { 
+    s_Cylinder() {
         X = Y = 0.0; Radius = 0.5;  // geometry
         Xterm = 10.0; Yterm = 0.0; Aterm = 1.0; Bterm = 1.0;
         NumK = NumN = 200; MakeNaN(Kmax); // integration parameters
@@ -294,9 +298,9 @@ struct s_Corner : tPointFunction_EP<fpv>, tSpaceForm<fpv> {
     int mm; // разбиение отрезков интегрирования
     tGaussIntegrator<fpv> GI; // узлы и коэффициенты гауссовой квадратуры
     fpv angle; // угол (по умолчанию 2*Pi)
-    s_Corner() { 
-        angle = GetPiNumber2<fpv>(); 
-        Hmax=sqrt(9.2*sizeof(fpv)); GI.GR = 4*sizeof(fpv); mm = 3;  
+    s_Corner() {
+        angle = GetPiNumber2<fpv>();
+        Hmax=sqrt(9.2*sizeof(fpv)); GI.GR = 4*sizeof(fpv); mm = 3;
     }
 
     tFuncType Type() const OVERRIDE { return FUNC_PULSATIONS; } // поскольку наследуем напрямую tPointFunction_EP, указываем тип
@@ -324,31 +328,32 @@ struct s_CornerWP : s_Corner<fpv> {
 
 
 //======================================================================================================================
-struct s_CornerPlanar : tPulsFunction {
+template<typename fpv>
+struct s_CornerPlanar : tPointFunction_EP<fpv> {
     DESCRIPTION("planar wave by corner diffraction");
 //======================================================================================================================
-    double angle; // угол
-    double phi0;  // направление, откуда приходит волна
-    double X0;    // расстояние до центра волны
-    double Bterm; // полуширина волны
-    double Aterm; // амплитуда волны
-    int NumNodes; // количество узлов для интегрирования
+    fpv angle; // угол
+    fpv phi0;  // направление, откуда приходит волна
+    fpv X0;    // расстояние до центра волны
+    fpv Bterm; // полуширина волны
+    fpv Aterm; // амплитуда волны
 
-private:
-    int m, n; // рациональное представление для угла
-    tCompoundGaussIntegrator<double> GI;
-
-public:
-    s_CornerPlanar() { angle = Pi2/3.0; phi0 = 0.25*PiNumber; X0=100.0; Bterm=6.0; Aterm = 1.0; 
-                       m=n=0; NumNodes=21*sizeof(double); NumNodes *= sizeof(double); } 
+    tFuncType Type() const OVERRIDE { return FUNC_PULSATIONS; } // we inherit tPointFunction_EP, need to specify the type
+    s_CornerPlanar() { angle = GetPiNumber2<fpv>()/3.0; phi0 = 0.25*GetPiNumber<fpv>(); X0=100.0; Bterm=6.0;
+                       Aterm = 1.0; m=n=0; }
     const char* filename() const OVERRIDE { return "es_cornerplanar.txt"; }
     void ReadParams(tFileBuffer& FB) OVERRIDE;
     void Init() OVERRIDE;
-    void PointValue(double t, const double* coor, double* V) const;
-    void set_reducer(double value) { GI.reducer = value; } // workaround
+    void PointValue(fpv t, const fpv* coor, fpv* V) const;
 
-    // Вспомогательная процедура -- вычисление интегралов
-    static double EvalJ0(double a, double b, const tCompoundGaussIntegrator<double>& CGI, int mode = -1);
+private:
+    int m, n; // рациональное представление для угла
+    fpv pi, pi2, const_sqrt_2ln2; // pi, pi2, sqrt(2*ln(2))
+    fpv H;
+    tGaussIntegrator<fpv> GJI;
+
+public:
+    const tGaussIntegrator<fpv>& get_GJI() { return GJI; }
 };
 //======================================================================================================================
 
@@ -362,7 +367,7 @@ struct s_Source1D3D : tPointFunction_EP<fpv>, tSpaceForm<fpv> {
     fpv Ampl, Freq, Phase, tmin, tmax; // Параметры, описывающие сигнал во времени
     int SignalType; // 1 - sin, 6 - sin^4
 
-    s_Source1D3D(int _NumCoords=3) { 
+    s_Source1D3D(int _NumCoords=3) {
         Phase = 0.0; SignalType = 1; tmin = 0.0; tmax = 1e50;  Ampl = Freq = 1.0;
         tSpaceForm<fpv>::numCoords = _NumCoords;
     }
@@ -377,7 +382,7 @@ protected:
     tGaussIntegrator<fpv> GI;
 };
 template<typename fpv>
-struct s_Source1D : s_Source1D3D<fpv> { 
+struct s_Source1D : s_Source1D3D<fpv> {
     DESCRIPTION("1D acoustic source");
     s_Source1D():s_Source1D3D<fpv>(1) {}
     const char* filename() const OVERRIDE { return "es_source1d.txt"; }
@@ -509,7 +514,7 @@ struct s_WaveInChannel : tPointFunction_EP<fpv> {
     // solution parameters
     fpv k;        // axial wave number
     int l;        // for cylindrical channel only: azimuthal mode
-    int kmode;    // radial (for cylindrical channel) / transversal (for planar channel) mode 
+    int kmode;    // radial (for cylindrical channel) / transversal (for planar channel) mode
     fpv ReOmega, ImOmega; // complex frequency. If set, kmode is ignored
     fpv ampl;     // multiplicator
     fpv phase;    // phase (axial shift)
@@ -520,13 +525,13 @@ struct s_WaveInChannel : tPointFunction_EP<fpv> {
     int ControlRootsJump; // enhanced control of switching from one mode to another
 
     // Data precalculated at Init()
-    s_WaveInChannel_PrivateData<fpv>* data; 
+    s_WaveInChannel_PrivateData<fpv>* data;
 
     tFuncType Type() const OVERRIDE { return FUNC_PULSATIONS_COMPLEX; }
 
     // Constructors & destructors
-    s_WaveInChannel() { 
-        nu=1.0; gamma=1.4; Prandtl=1e50; 
+    s_WaveInChannel() {
+        nu=1.0; gamma=1.4; Prandtl=1e50;
         form=0; R=1.0; Ymin=-0.5; Ymax=0.5; CoorAxis = 2;
         k=0.0; l=8; kmode=1; ampl=1.0; phase=0.0; MakeNaN(ReOmega); MakeNaN(ImOmega);
         MakeNaN(_dmumin); MakeNaN(_dmumax); loglevel=1; ControlRootsJump=0;
@@ -596,11 +601,11 @@ struct s_Riemann : tPhysFunction { // Решение задачи Римана �
     int SteadyTest;        // Do check that ushock=0 at initialization
 
     s_Riemann() {
-        e[0]=1.0; e[1]=e[2]=0.0; SteadyTest=0; DF_Coor=0.0; 
+        e[0]=1.0; e[1]=e[2]=0.0; SteadyTest=0; DF_Coor=0.0;
         for(int i=0; i<3; i++) { MakeNaN(MUL[i]); MakeNaN(MUR[i]); }
         MakeNaN(gam);
     }
-    inline s_Riemann(double _gam, const double* L, const double* R) { 
+    inline s_Riemann(double _gam, const double* L, const double* R) {
         e[0]=1.0; e[1]=e[2]=0.0; SteadyTest=0; DF_Coor=0.0;
         gam=_gam; for(int i=0; i<3; i++) { MUL[i]=L[i]; MUR[i]=R[i]; }
     }
@@ -661,7 +666,7 @@ struct s_ViscShock : tPhysFunction { // Структура ударной вол
 
     s_ViscShock() {
         mode=-1;
-        x0=ushock=0.0; MUL[0]=MUR[0]=MUL[2]=MUR[2]=1.0; MUL[1]=MUR[1]=0.0; 
+        x0=ushock=0.0; MUL[0]=MUR[0]=MUL[2]=MUR[2]=1.0; MUL[1]=MUR[1]=0.0;
         SteadyTest=0;
         AutodetectShockPosition=0;
     }
@@ -692,7 +697,7 @@ struct s_CurlFreeCylinder : tPhysFunction {
 struct s_PotentialSphere : tPhysFunction { // Potential flow around a sphere
     DESCRIPTION("potential flow around a sphere");
 //======================================================================================================================
-    double X, Y, Z, R; // Center coordinates of the sphere and its radius 
+    double X, Y, Z, R; // Center coordinates of the sphere and its radius
 
     s_PotentialSphere() { X = Y = Z = 0.0; R = 0.5; }
     const char* filename() const OVERRIDE { return "es_potentialsphere.txt"; }
@@ -719,11 +724,11 @@ struct s_Couette : tPhysFunction { // Couette flow between parallel plates
         int AutodetectPressure;
     #endif
 
-    s_Couette() { 
-        xL=-0.5; xR=0.5; condL=0; condR=1; gam=1.4; Pr=1.0; vL=0.0; vR=1.0; tL=tR=1.0/gam; ViscType=0; 
+    s_Couette() {
+        xL=-0.5; xR=0.5; condL=0; condR=1; gam=1.4; Pr=1.0; vL=0.0; vR=1.0; tL=tR=1.0/gam; ViscType=0;
         MakeNaN(pressure); MakeNaN(TSutherland);
         #ifdef _NOISETTE
-            AutodetectPressure=0; 
+            AutodetectPressure=0;
         #endif
     }
     const char* filename() const OVERRIDE { return "es_couette.txt"; }
@@ -837,7 +842,7 @@ public:
 //======================================================================================================================
 struct s_ConcCyl : tPointFunction {
     DESCRIPTION("flow between two cylinders (2D, visc)");
-    // ATTENTION! PointValue() returns the solution for velocity and temperature. 
+    // ATTENTION! PointValue() returns the solution for velocity and temperature.
     //            Density and pressure can't be defined uniquely!
 //======================================================================================================================
     double X[3]; // a point on the axis
@@ -862,7 +867,7 @@ struct s_Blasius : tPhysFunction {
     DESCRIPTION("solution of Blasius equation");
 //======================================================================================================================
     s_Blasius() { FlowVel=1.0; SoundVel = 1e10; Rey=1.0; MakeNaN(d_eta); }
- 
+
     void ReadParams(tFileBuffer& FB) OVERRIDE;
     const char* filename() const OVERRIDE { return "es_blasius.txt"; }
     void Init() OVERRIDE;

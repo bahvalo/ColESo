@@ -23,13 +23,13 @@ fpv tgamma(fpv arg) {
     if(fabs(arg - 2.5) < tinyloc) return 0.75*sqrt_pi;
     if(fabs(arg - 3.0) < tinyloc) return 2;
     if(fabs(arg - 3.5) < tinyloc) return 1.875*sqrt_pi;
-    crash("tgamma: not realized");
+    crash("tgamma: not implemented");
 }
 //****************************************************************************80
 
 
 //****************************************************************************80
-// PARCHK checks parameters ALPHA and BETA for classical weight functions. 
+// PARCHK checks parameters ALPHA and BETA for classical weight functions.
 //****************************************************************************80
 template<typename fpv>
 void parchk ( int kind, int m, fpv alpha, fpv beta ) {
@@ -37,7 +37,7 @@ void parchk ( int kind, int m, fpv alpha, fpv beta ) {
     // Check ALPHA for Gegenbauer, Jacobi, Laguerre, Hermite, Exponential.
     if(3 <= kind) ASSERT(alpha > -1.0, "3 <= KIND and ALPHA <= -1.");
     //  Check BETA for Jacobi.
-    if ( kind == 4) ASSERT(beta > -1.0, "KIND == 4 and BETA <= -1.0"); 
+    if ( kind == 4) ASSERT(beta > -1.0, "KIND == 4 and BETA <= -1.0");
     //  Check ALPHA and BETA for rational.
     if ( kind == 8 ) { fpv tmp = alpha + beta + m + 1.0; ASSERT(0.0 > tmp && tmp > beta, "KIND == 8 but condition on ALPHA and BETA fails."); }
 }
@@ -65,7 +65,7 @@ void parchk ( int kind, int m, fpv alpha, fpv beta ) {
 //
 //  Licensing:
 //
-//    This code is distributed under the GNU LGPL license. 
+//    This code is distributed under the GNU LGPL license.
 //
 //  Modified:
 //
@@ -79,7 +79,7 @@ void parchk ( int kind, int m, fpv alpha, fpv beta ) {
 //  Reference:
 //
 //    Sylvan Elhay, Jaroslav Kautsky,
-//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of 
+//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of
 //    Interpolatory Quadrature,
 //    ACM Transactions on Mathematical Software,
 //    Volume 13, Number 4, December 1987, pages 399-415.
@@ -107,15 +107,7 @@ void parchk ( int kind, int m, fpv alpha, fpv beta ) {
 
 template<typename fpv>
 fpv class_matrix ( int kind, int m, fpv alpha, fpv beta, fpv* aj, fpv* bj) {
-    fpv temp = get_eps<fpv>();
-
     parchk ( kind, 2 * m - 1, alpha, beta );
-
-    fpv temp2 = 0.5;
-    fpv pi = GetPiNumber<fpv>();
-    if ( 500.0 * temp < fabs ( SQR ( tgamma ( temp2 ) ) - pi ) )
-        crash("Class_matrix error: Gamma function does not match machine parameters");
-
     fpv zemu; // int p(x) dx
 
     switch(kind) {
@@ -132,7 +124,7 @@ fpv class_matrix ( int kind, int m, fpv alpha, fpv beta, fpv* aj, fpv* bj) {
         break;
     }
     case 2: {
-        zemu = pi;
+        zemu = GetPiNumber<fpv>();
         for (int i = 0; i < m; i++ ) aj[i] = 0.0;
         bj[0] =  sqrt ( 0.5 );
         for (int i = 1; i < m; i++ ) bj[i] = 0.5;
@@ -225,20 +217,20 @@ fpv class_matrix ( int kind, int m, fpv alpha, fpv beta, fpv* aj, fpv* bj) {
 //
 //  Discussion:
 //
-//    This routine is a slightly modified version of the EISPACK routine to 
-//    perform the implicit QL algorithm on a symmetric tridiagonal matrix. 
+//    This routine is a slightly modified version of the EISPACK routine to
+//    perform the implicit QL algorithm on a symmetric tridiagonal matrix.
 //
 //    The authors thank the authors of EISPACK for permission to use this
-//    routine. 
+//    routine.
 //
-//    It has been modified to produce the product Q' * Z, where Z is an input 
-//    vector and Q is the orthogonal matrix diagonalizing the input matrix.  
+//    It has been modified to produce the product Q' * Z, where Z is an input
+//    vector and Q is the orthogonal matrix diagonalizing the input matrix.
 //    The changes consist (essentially) of applying the orthogonal transformations
 //    directly to Z as they are generated.
 //
 //  Licensing:
 //
-//    This code is distributed under the GNU LGPL license. 
+//    This code is distributed under the GNU LGPL license.
 //
 //  Modified:
 //
@@ -252,7 +244,7 @@ fpv class_matrix ( int kind, int m, fpv alpha, fpv beta, fpv* aj, fpv* bj) {
 //  Reference:
 //
 //    Sylvan Elhay, Jaroslav Kautsky,
-//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of 
+//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of
 //    Interpolatory Quadrature,
 //    ACM Transactions on Mathematical Software,
 //    Volume 13, Number 4, December 1987, pages 399-415.
@@ -269,7 +261,7 @@ fpv class_matrix ( int kind, int m, fpv alpha, fpv beta, fpv* aj, fpv* bj) {
 //    Input/output, double D(N), the diagonal entries of the matrix.
 //    On output, the information in D has been overwritten.
 //
-//    Input/output, double E(N), the subdiagonal entries of the 
+//    Input/output, double E(N), the subdiagonal entries of the
 //    matrix, in entries E(1) through E(N-1).  On output, the information in
 //    E has been overwritten.
 //
@@ -370,189 +362,6 @@ void imtqlx ( int n, fpv* d, fpv* e, fpv* z ) {
 //
 //  Purpose:
 //
-//    SCQF scales a quadrature formula to a nonstandard interval.
-//
-//  Discussion:
-//
-//    The arrays WTS and SWTS may coincide.
-//
-//    The arrays T and ST may coincide.
-//
-//  Licensing:
-//
-//    This code is distributed under the GNU LGPL license. 
-//
-//  Modified:
-//
-//    16 February 2010
-//
-//  Author:
-//
-//    Original FORTRAN77 version by Sylvan Elhay, Jaroslav Kautsky.
-//    C++ version by John Burkardt.
-//
-//  Reference:
-//
-//    Sylvan Elhay, Jaroslav Kautsky,
-//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of 
-//    Interpolatory Quadrature,
-//    ACM Transactions on Mathematical Software,
-//    Volume 13, Number 4, December 1987, pages 399-415.
-//
-//  Parameters:
-//
-//    Input, int NT, the number of knots.
-//
-//    Input, double T[NT], the original knots.
-//
-//    Input, int MLT[NT], the multiplicity of the knots.
-//
-//    Input, double WTS[NWTS], the weights.
-//
-//    Input, int NWTS, the number of weights.
-//
-//    Input, int NDX[NT], used to index the array WTS.  
-//    For more details see the comments in CAWIQ.
-//
-//    Output, double SWTS[NWTS], the scaled weights.
-//
-//    Output, double ST[NT], the scaled knots.
-//
-//    Input, int KIND, the rule.
-//    1, Legendre,             (a,b)       1.0
-//    2, Chebyshev Type 1,     (a,b)       ((b-x)*(x-a))^(-0.5)
-//    3, Gegenbauer,           (a,b)       ((b-x)*(x-a))^alpha
-//    4, Jacobi,               (a,b)       (b-x)^alpha*(x-a)^beta
-//    5, Generalized Laguerre, (a,+oo)     (x-a)^alpha*exp(-b*(x-a))
-//    6, Generalized Hermite,  (-oo,+oo)   |x-a|^alpha*exp(-b*(x-a)^2)
-//    7, Exponential,          (a,b)       |x-(a+b)/2.0|^alpha
-//    8, Rational,             (a,+oo)     (x-a)^alpha*(x+b)^beta
-//    9, Chebyshev Type 2,     (a,b)       ((b-x)*(x-a))^(+0.5)
-//
-//    Input, double ALPHA, the value of Alpha, if needed.
-//    Input, double BETA, the value of Beta, if needed.
-//    Input, double A, B, the interval endpoints.
-//
-//****************************************************************************80
-template<typename fpv>
-void scqf ( int nt, fpv t[], int mlt[], fpv wts[], int, int ndx[], 
-  fpv swts[], fpv st[], int kind, fpv alpha, fpv beta, fpv a, 
-  fpv b ) {
-  fpv al;
-  fpv be;
-  int i;
-  int k;
-  int l;
-  fpv p;
-  fpv shft;
-  fpv slp;
-  fpv temp;
-  fpv tmp;
-
-  temp = get_eps<fpv>();
-
-  parchk ( kind, 1, alpha, beta );
-
-  if ( kind == 1 )
-  {
-    al = 0.0;
-    be = 0.0;
-    if ( fabs ( b - a ) <= temp ) crash("|B - A| too small.");
-    shft = ( a + b ) / 2.0;
-    slp = ( b - a ) / 2.0;
-  }
-  else if ( kind == 2 )
-  {
-    al = -0.5;
-    be = -0.5;
-    if ( fabs ( b - a ) <= temp ) crash("|B - A| too small.");
-    shft = ( a + b ) / 2.0;
-    slp = ( b - a ) / 2.0;
-  }
-  else if ( kind == 3 )
-  {
-    al = alpha;
-    be = alpha;
-    if ( fabs ( b - a ) <= temp ) crash("|B - A| too small.");
-    shft = ( a + b ) / 2.0;
-    slp = ( b - a ) / 2.0;
-  }
-  else if ( kind == 4 )
-  {
-    al = alpha;
-    be = beta;
-    if ( fabs ( b - a ) <= temp ) crash("|B - A| too small.");
-    shft = ( a + b ) / 2.0;
-    slp = ( b - a ) / 2.0;
-  }
-  else if ( kind == 5 )
-  {
-    if ( b <= 0.0 ) crash("B <= 0");
-    shft = a;
-    slp = 1.0 / b;
-    al = alpha;
-    be = 0.0;
-  }
-  else if ( kind == 6 )
-  {
-    if ( b <= 0.0 ) crash("B <= 0");
-    shft = a;
-    slp = 1.0 / sqrt ( b );
-    al = alpha;
-    be = 0.0;
-  }
-  else if ( kind == 7 )
-  {
-    al = alpha;
-    be = 0.0;
-    if ( fabs ( b - a ) <= temp ) crash("|B - A| too small.");
-    shft = ( a + b ) / 2.0;
-    slp = ( b - a ) / 2.0;
-  }
-  else if ( kind == 8 )
-  {
-    if ( a + b <= 0.0 ) crash("A+B <= 0");
-    shft = a;
-    slp = a + b;
-    al = alpha;
-    be = beta;
-  }
-  else if ( kind == 9 )
-  {
-    al = 0.5;
-    be = 0.5;
-    if ( fabs ( b - a ) <= temp ) crash("|B - A| too small.");
-    shft = ( a + b ) / 2.0;
-    slp = ( b - a ) / 2.0;
-  }
-  else crash("scqf: wrong kind");
-
-  p = pow ( slp, al + be + 1.0 );
-
-  for ( k = 0; k < nt; k++ )
-  {
-    st[k] = shft + slp * t[k];
-    l = abs ( ndx[k] );
-
-    if ( l != 0 )
-    {
-      tmp = p;
-      for ( i = l - 1; i <= l - 1 + mlt[k] - 1; i++ )
-      {
-        swts[i] = wts[i] * tmp;
-        tmp = tmp * slp;
-      }
-    }
-  }
-  return;
-}
-//****************************************************************************80
-
-
-//****************************************************************************80
-//
-//  Purpose:
-//
 //    SGQF computes knots and weights of a Gauss Quadrature formula.
 //
 //  Discussion:
@@ -563,7 +372,7 @@ void scqf ( int nt, fpv t[], int mlt[], fpv wts[], int, int ndx[],
 //
 //  Licensing:
 //
-//    This code is distributed under the GNU LGPL license. 
+//    This code is distributed under the GNU LGPL license.
 //
 //  Modified:
 //
@@ -577,7 +386,7 @@ void scqf ( int nt, fpv t[], int mlt[], fpv wts[], int, int ndx[],
 //  Reference:
 //
 //    Sylvan Elhay, Jaroslav Kautsky,
-//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of 
+//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of
 //    Interpolatory Quadrature,
 //    ACM Transactions on Mathematical Software,
 //    Volume 13, Number 4, December 1987, pages 399-415.
@@ -586,7 +395,7 @@ void scqf ( int nt, fpv t[], int mlt[], fpv wts[], int, int ndx[],
 //
 //    Input, int NT, the number of knots.
 //    Input, double AJ[NT], the diagonal of the Jacobi matrix.
-//    Input/output, double BJ[NT], the subdiagonal of the Jacobi 
+//    Input/output, double BJ[NT], the subdiagonal of the Jacobi
 //        matrix, in entries 1 through NT-1.  On output, BJ has been overwritten.
 //    Input, double ZEMU, the zero-th moment of the weight function.
 //    Output, double T[NT], the knots.
@@ -627,7 +436,7 @@ void sgqf ( int nt, fpv* aj, fpv* bj, fpv zemu, fpv* t, fpv* wts) {
 //
 //  Licensing:
 //
-//    This code is distributed under the GNU LGPL license. 
+//    This code is distributed under the GNU LGPL license.
 //
 //  Modified:
 //
@@ -641,7 +450,7 @@ void sgqf ( int nt, fpv* aj, fpv* bj, fpv zemu, fpv* t, fpv* wts) {
 //  Reference:
 //
 //    Sylvan Elhay, Jaroslav Kautsky,
-//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of 
+//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of
 //    Interpolatory Quadrature,
 //    ACM Transactions on Mathematical Software,
 //    Volume 13, Number 4, December 1987, pages 399-415.
@@ -675,85 +484,11 @@ void cdgqf (int nt, int kind, fpv alpha, fpv beta, fpv* t, fpv* wts) {
     fpv* aj = new fpv[nt];
     fpv* bj = new fpv[nt];
     fpv zemu = class_matrix ( kind, nt, alpha, beta, aj, bj );
-    
+
     //  Compute the knots and weights.
     sgqf ( nt, aj, bj, zemu, t, wts );
 
     delete [] aj;
     delete [] bj;
-}
-//****************************************************************************80
-
-
-//****************************************************************************80
-//
-//  Purpose:
-//
-//    CGQF computes knots and weights of a Gauss quadrature formula.
-//
-//  Discussion:
-//
-//    The user may specify the interval (A,B).
-//
-//    Only simple knots are produced.
-//
-//  Licensing:
-//
-//    This code is distributed under the GNU LGPL license. 
-//
-//  Modified:
-//
-//    16 February 2010
-//
-//  Author:
-//
-//    Original FORTRAN77 version by Sylvan Elhay, Jaroslav Kautsky.
-//    C++ version by John Burkardt.
-//
-//  Reference:
-//
-//    Sylvan Elhay, Jaroslav Kautsky,
-//    Algorithm 655: IQPACK, FORTRAN Subroutines for the Weights of 
-//    Interpolatory Quadrature,
-//    ACM Transactions on Mathematical Software,
-//    Volume 13, Number 4, December 1987, pages 399-415.
-//
-//  Parameters:
-//
-//    Input, int NT, the number of knots.
-//
-//    Input, int KIND, the rule.
-//    1, Legendre,             (a,b)       1.0
-//    2, Chebyshev Type 1,     (a,b)       ((b-x)*(x-a))^-0.5)
-//    3, Gegenbauer,           (a,b)       ((b-x)*(x-a))^alpha
-//    4, Jacobi,               (a,b)       (b-x)^alpha*(x-a)^beta
-//    5, Generalized Laguerre, (a,+oo)     (x-a)^alpha*exp(-b*(x-a))
-//    6, Generalized Hermite,  (-oo,+oo)   |x-a|^alpha*exp(-b*(x-a)^2)
-//    7, Exponential,          (a,b)       |x-(a+b)/2.0|^alpha
-//    8, Rational,             (a,+oo)     (x-a)^alpha*(x+b)^beta
-//    9, Chebyshev Type 2,     (a,b)       ((b-x)*(x-a))^(+0.5)
-//
-//    Input, double ALPHA, the value of Alpha, if needed.
-//    Input, double BETA, the value of Beta, if needed.
-//    Input, double A, B, the interval endpoints, or other parameters.
-//    Output, double T[NT], the knots.
-//    Output, double WTS[NT], the weights.
-//
-//****************************************************************************80
-template<typename fpv>
-void cgqf ( int nt, int kind, fpv alpha, fpv beta, fpv a, fpv b, fpv* t, fpv* wts ) {
-    //  Compute the Gauss quadrature formula for default values of A and B.
-    cdgqf ( nt, kind, alpha, beta, t, wts );
-
-    //  Prepare to scale the quadrature formula to other weight function with valid A and B.
-    int* mlt = new int[nt];
-    for (int i = 0; i < nt; i++ ) mlt[i] = 1;
-    int* ndx = new int[nt];
-    for (int i = 0; i < nt; i++ ) ndx[i] = i + 1;
-
-    scqf ( nt, t, mlt, wts, nt, ndx, wts, t, kind, alpha, beta, a, b );
-
-    delete [] mlt;
-    delete [] ndx;
 }
 //****************************************************************************80

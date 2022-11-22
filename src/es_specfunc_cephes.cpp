@@ -360,7 +360,7 @@ void fresnl(double xxa, double& ss, double& cc) {
         ss = x * x2 * polevl( t, sn, 5)/p1evl( t, sd, 6 );
         cc = x * polevl( t, cn, 5)/polevl(t, cd, 6 );
     }
-    else if( x > 36974.0 ) {
+    else if( x > 1e10 /*36974.0*/ ) { // in the original text, a strange constant 36974 was here
         cc = 0.5;
         ss = 0.5;
     }

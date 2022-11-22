@@ -47,8 +47,10 @@ template<typename fpv> void BesselI(fpv x, int n1, fpv eps, int s, fpv *t);
 void PrintBesselDerivatives(int l);
 
 NativeDouble cephes_erf(NativeDouble x); // erf
-void fresnl(NativeDouble x, NativeDouble& ss, NativeDouble& cc); // Fresnel integrals
-double expn( int n, double x ); // int_1^\infty exp(-x*t) / t^n dt
+
+template<typename fpv> void Fresnl(fpv x, fpv& S, fpv& C); // Fresnel integrals
+
+NativeDouble expn( int n, NativeDouble x ); // int_1^\infty exp(-x*t) / t^n dt
 
 
 #endif

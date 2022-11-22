@@ -8,8 +8,8 @@
 #include "base_parser.h"
 #include "es_utils.h"
 #include "pointfuncs.h"
-#include "geom_primitive.h" 
-#include "spaceform.h" 
+#include "geom_primitive.h"
+#include "spaceform.h"
 #include "gaussrule.h"
 #ifdef EXTRAPRECISION_COLESO
 #include "extraprecision.h"
@@ -95,8 +95,12 @@ template<typename fpv>
 void tSpaceForm<fpv>::Init() {
     if(Form==tSpaceForm<fpv>::FORM_CONST) return;
 
-    if(Bterm < get_eps<fpv>()) crash("tSourceStruct::Init: bterm = %e too small", double(Bterm));
+    if(Bterm < get_eps<fpv>()) crash("Bterm = %e too small", double(Bterm));
     InvBTerm = 1.0/Bterm;
+
+    if(fabs(PerX) > 0.5*huge) MaxPer[0] = 0;
+    if(fabs(PerY) > 0.5*huge) MaxPer[1] = 0;
+    if(fabs(PerZ) > 0.5*huge) MaxPer[2] = 0;
 
     if(NormalizeForm) {
         Aterm /= AmpliduteLinf2L1(Bterm);
@@ -110,13 +114,13 @@ void tSpaceForm<fpv>::Init() {
 //----------------------------------------------------------------------------------------------------------------------
 template<typename fpv>
 fpv tSpaceForm<fpv>::SpaceForm_rr(fpv rr, fpv* df) const {
-    if(Form == tSpaceForm::FORM_CONST) { 
+    if(Form == tSpaceForm::FORM_CONST) {
         if(df!=NULL) *df = 0.0;
         return Aterm;
     }
 
     switch ( Form ) {
-    case tSpaceForm::FORM_GAUSSIAN: 
+    case tSpaceForm::FORM_GAUSSIAN:
     {
         fpv alpha = GetLn2<fpv>()*InvBTerm*InvBTerm;
         fpv expr = Aterm * exp(-alpha*rr);
@@ -190,7 +194,7 @@ template<typename fpv>
 fpv tSpaceForm<fpv>::ddSpaceForm(fpv r) const {
     switch ( Form ) {
     case tSpaceForm::FORM_CONST: return 0.0;
-    case tSpaceForm::FORM_GAUSSIAN: 
+    case tSpaceForm::FORM_GAUSSIAN:
     {
         fpv alpha = GetLn2<fpv>()*InvBTerm*InvBTerm;
         fpv buf = 2.*alpha*r;
@@ -252,31 +256,35 @@ fpv tSpaceForm<fpv>::SpaceForm(const fpv* Coords) const {
 //
 //======================================================================================================================
 
-
-//======================================================================================================================
-// Заполнение массива коэффициентов для квадратур Гаусса int f(x) dx, x=0..1, и int f(x)/sqrt{x} dx, x=0..1
-//======================================================================================================================
 template<typename fpv>
 void GaussPointsInit(int NumPoints, fpv* Nodes, fpv* Weights, tGItype gi_type) {
     if(NumPoints<=0) return;
-    if(gi_type == GI_LEGENDRE) {
-        GaussLegendrePointsInit<fpv>(NumPoints, Nodes, Weights);
-        return;
-    }
-    if(gi_type == GI_JACOBI1) {
-        #ifdef ES_JACOBI_RULE_HPP
-            //  Compute the Gauss quadrature formula int_{-1}^1 f(x) / sqrt(1+x) dx.
+    #ifdef ES_JACOBI_RULE_HPP
+        if(gi_type == GI_LEGENDRE) { // int_0^1 f(x) dx
+            cdgqf<fpv>(NumPoints, 1 /* Gauss-Legendre */, 0.0 /*unused*/, -0.5 /*unused*/, Nodes, Weights );
+
+            //  Scale the quadrature formula to [0,1]
+            for (int k = 0; k < NumPoints; k++ ) { Nodes[k] = 0.5 + 0.5 * Nodes[k]; Weights[k] *= 0.5; }
+            return;
+        }
+        if(gi_type == GI_JACOBI1) { //  int_{-1}^1 f(x) / sqrt(1+x) dx.
             cdgqf<fpv>(NumPoints, 4 /* Gauss-Jacobi */, 0.0 /*alpha*/, -0.5 /*beta*/, Nodes, Weights );
 
             //  Scale the quadrature formula to [0,1]
             fpv p = sqrt(fpv(0.5));
             for (int k = 0; k < NumPoints; k++ ) { Nodes[k] = 0.5 + 0.5 * Nodes[k]; Weights[k] *= p; }
             return;
-        #else
-            crash("ES_JACOBI_RULE is not available");
-        #endif        
-    }
-    crash("Wrong quadrature type %i", gi_type);
+        }
+        if(gi_type == GI_LAGUERRE) { // int_0^{\infty} f(x) exp(-x) dx.
+            cdgqf<fpv>(NumPoints, 5 /* Generalized Laguerre */, 0.0 /*alpha*/, 0.0 /*beta*/, Nodes, Weights );
+            return;
+        }
+        crash("Wrong quadrature type %i", gi_type);
+    #else
+        // backup version - just for a case
+        if(gi_type != GI_LEGENDRE) crash("ES_JACOBI_RULE is not available");
+        GaussLegendrePointsInit<fpv>(NumPoints, Nodes, Weights);
+    #endif
 }
 //======================================================================================================================
 
@@ -287,10 +295,10 @@ void GaussPointsInit(int NumPoints, fpv* Nodes, fpv* Weights, tGItype gi_type) {
 
 #ifdef EXTRAPRECISION_HEADER
 int IsNaN(dd_real x) {
-    return IsNaN(x[0]) || IsNaN(x[1]); 
+    return IsNaN(x[0]) || IsNaN(x[1]);
 }
 int IsNaN(qd_real x) {
-    return IsNaN(x[0]) || IsNaN(x[1]) || IsNaN(x[2]) || IsNaN(x[3]); 
+    return IsNaN(x[0]) || IsNaN(x[1]) || IsNaN(x[2]) || IsNaN(x[3]);
 }
 #endif
 
@@ -299,6 +307,7 @@ int IsNaN(qd_real x) {
 //======================================================================================================================
 #define INSTANTIATE(T) \
     template void GaussPointsInit<T>(int NumPoints, T* Nodes, T* Weights, tGItype); \
+    template struct tGaussIntegrator<T>; \
     template struct tSpaceForm<T>;
 
 INSTANTIATE(NativeDouble)

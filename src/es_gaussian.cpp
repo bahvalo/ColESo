@@ -6,7 +6,7 @@
 // *********************************************************************************************************************
 
 #include "base_parser.h"
-#include "geom_primitive.h" 
+#include "geom_primitive.h"
 #include "coleso.h"
 #include "es_specfunc.h"
 #ifdef EXTRAPRECISION_COLESO
@@ -22,6 +22,172 @@
 
 //======================================================================================================================
 template<typename fpv>
+void s_Gaussian2D<fpv>::CalcViaDirect_GaussLaguerre(const fpv& t, const fpv& r, fpv& p, fpv& ur) const {
+    p = ur = 0.0;
+    #if 0 // use the Gauss - Laguerre quardature formulas
+    for(int i=0; i<GLAI.GR; i++) {
+        fpv xi = GLAI.GN[i], wi = GLAI.GC[i];
+        fpv omega = sqrt(2.*xi);
+        p  += wi * BesselJ0(omega*r) * cos(omega*t);
+        ur += wi * BesselJ1(omega*r) * sin(omega*t);
+    }
+    #else // use the Gauss - Legendre quardature formulas
+    for(int i=0; i<GLI.GR; i++) {
+        fpv omega = GLI.GN[i]*H;
+        fpv wi = GLI.GC[i]*exp(-0.5*omega*omega)*omega;
+        p  += wi * BesselJ0(omega*r) * cos(omega*t);
+        ur += wi * BesselJ1(omega*r) * sin(omega*t);
+    }
+    p *= H;
+    ur *= H;
+    #endif
+}
+
+
+template<typename fpv>
+void s_Gaussian2D<fpv>::CalcViaBesselFourier_GaussLedengre(const fpv& t, const fpv& r, fpv& p, fpv& ur) const {
+    p = ur = 0.0;
+    const fpv a = 1.0 - (r+H)/t, b = 1.0;
+    for(int i=0; i<GLI.GR; i++) {
+        fpv xi = a + (b-a)*GLI.GN[i], wi = GLI.GC[i];
+        const fpv txx = t*(1.0-xi); // (1-GLI.GN[i])*(r+H)
+        fpv I[2];
+        BesselI<fpv>(r*txx, 2, get_eps<fpv>() /*unused*/, false, I); // I0(x)*exp(-x), I1(x)*exp(-x)
+        wi *= exp(-0.5*(r-txx)*(r-txx)) * txx / sqrt(xi*(2.-xi));
+        p  += wi*((1.-txx*txx)*I[0] + r*txx*I[1]);
+        ur += wi*(r*I[0]-txx*I[1]);
+    }
+    p  *= (b-a)/t;
+    ur *= (b-a);
+}
+
+template<typename fpv>
+void s_Gaussian2D<fpv>::CalcViaFourier_GaussJacobi(const fpv& t, const fpv& r, fpv& p, fpv& ur) const {
+    p = ur = 0.0;
+    const fpv inv_r = 1.0 / r;
+    const fpv b = (t+H)/r - 1.0;
+    if(b<0.0) return;
+
+    for(int i=0; i<GJI.GR; i++) {
+        fpv xi = b*GJI.GN[i], wi = GJI.GC[i];
+        fpv tmp = r - t + r*xi;
+        wi *= exp(-0.5*tmp*tmp) / sqrt(2.+xi);
+        p  += wi * tmp;
+        //ur += wi*(tmp  + 1./(r*(2.+xi)));
+        ur += wi*((xi+1.)*tmp + inv_r) / SQR(xi+1.);
+    }
+    const fpv m = sqrt(b / GetPiNumber2<fpv>());
+    p  *= m;
+    ur *= m;
+}
+
+template<typename fpv>
+void s_Gaussian2D<fpv>::CalcViaFourier_uniform(const fpv& t, const fpv& r, fpv& p, fpv& ur) const {
+    const NativeDouble Hhat = sqrt(1.16666666*SQR(NativeDouble(H)) + 4.22 + 1.011*log(1.16666666*SQR(NativeDouble(H)) + 4.22));
+    const int n = int(Hhat*Hhat / GetPiNumber<NativeDouble>())+1;
+
+    const fpv inv_r = 1.0/r;
+    p = ur = 0.0;
+    fpv h = Hhat / (n + 0.5);
+    if(Hhat+t<r) crash("Internal error");
+    for(int i=1; i<=n; i++) {
+        fpv eta = i*h;
+        fpv U = (t+eta)*inv_r, V = (t-eta)*inv_r;
+        fpv u = (U-1.)*(U+1.), v = (V-1.)*(V+1.);
+        fpv sqrt_u = sqrt(u),  sqrt_v = sqrt(v);
+        fpv w = exp(-0.5*eta*eta) * eta*eta;
+        p += w / (u*sqrt_v + v*sqrt_u);
+        ur += w / (u*V*sqrt_v + v*U*sqrt_u);
+    }
+    fpv mult = -4.*t*h*inv_r*inv_r*inv_r / sqrt(GetPiNumber2<fpv>());
+    p  *= mult;
+    ur *= mult;
+}
+
+
+template<typename fpv>
+void s_Gaussian2D<fpv>::CalcAsymptSeries(const fpv& t, const fpv& r, fpv& p, fpv& ur) const {
+    fpv eps = get_eps<fpv>();
+    const int M_max = int(-log(eps));
+    const fpv r2 = r*r;
+    const fpv inv_t = fpv(1.0) / t;
+    const fpv inv_t2 = inv_t*inv_t;
+    eps *= inv_t; // when lg(t)>>1, we want the relative error to be <= epsilon
+
+    {
+        const fpv a1 = (0.234375*r2 - 0.75)*r2 + 1.0;
+        const fpv a3 = (0.15625*r2 - 0.25)*r2;
+        const fpv a5 = 0.015625*r2*r2;
+        p = ((-15.*a1*inv_t2 - 3.*a1 + 15.*a3)*inv_t2 -a1 + 3.*a3 - 15.*a5)*inv_t2;
+        fpv m = ((-a1*inv_t2 + a3)*inv_t2 - a5)*inv_t2*inv_t2 * 105.0;
+        for(int l=4; l<M_max; l++) {
+            p += m;
+            m *= fpv(2*l+1)*inv_t2;
+            if(fabs(m)*M_max < eps) break;
+        }
+    }
+    {
+        const fpv b0 = ((0.0390625*r2 - 0.1875)*r2 + 0.5)*r;
+        const fpv b2 = ((0.1171875*r2 - 0.375)*r2 + 0.5)*r;
+        const fpv b4 = (0.0390625*r2 - 0.0625)*r2*r;
+        const fpv b6 = r2*r2*r/fpv(384.0);
+        ur = (((15*b0*inv_t2 + 3*b0 - 15*b2)*inv_t2 + b0-3*b2+15*b4)*inv_t2 + b0-b2+3*b4-15*b6)*inv_t;
+        fpv m = (((b0*inv_t2 - b2)*inv_t2 + b4)*inv_t2 - b6)*inv_t2*inv_t * 105.0;
+        for(int l=4; l<M_max; l++) {
+            ur += m;
+            m *= fpv(2*l+1)*inv_t2;
+            if(fabs(m)*M_max < eps) break;
+        }
+    }
+}
+
+template<typename fpv>
+void s_Gaussian2D<fpv>::get_solution(fpv t, fpv r, fpv& p, fpv& ur) const {
+    if(GLI.GN==NULL || GJI.GN==NULL || GLAI.GN==NULL) crash("Init not done");
+
+    if(t < get_eps<fpv>()) { // Calculating the solution using the Taylor expansion at t=0
+        fpv f0 = exp(-0.5*r*r); // значение
+        p = f0; ur = 0.0;
+        if(t > 0.0) {
+            fpv f1_r = -f0; // first derivative divided by l
+            fpv f2 = (r-1.0)*f0; // second derivative
+            p += 0.5*t*t*(f2 + f1_r);
+            ur = - t * f1_r * r;
+        }
+        return;
+    }
+    if(t-r > 1.152*H) {
+        if(r > R1) CalcViaFourier_uniform(t,r,p,ur);
+        else if(t > 1.3*H) CalcAsymptSeries(t,r,p,ur);
+        else CalcViaBesselFourier_GaussLedengre(t,r,p,ur);
+    }
+    else {
+        const fpv alphaH = 1.05*H;
+        if(t < r-alphaH) { p=ur=0.0; }
+        else if(t+r < alphaH) CalcViaDirect_GaussLaguerre(t,r,p,ur);
+        else if(r <= R2) CalcViaBesselFourier_GaussLedengre(t,r,p,ur);
+        else CalcViaFourier_GaussJacobi(t,r,p,ur);
+    }
+}
+//======================================================================================================================
+
+//======================================================================================================================
+template<typename fpv>
+s_Gaussian2D<fpv>::s_Gaussian2D() : tSpaceForm<fpv>() {
+    // Default parameters
+    FlowVelX=FlowVelY=FlowVelZ=0.0;
+    SoundSpeed=1.0;
+    // For the correct normalizing of the inital pulse amplitude (if requested)
+    tSpaceForm<fpv>::numCoords = 2;
+
+    // Parameters of numerical integration and choosing a method to calculate the solution
+    H = sqrt(-2.*log(0.5*NativeDouble(get_eps<fpv>())));
+    R1 = pow(15.0*NativeDouble(get_eps<fpv>()), 1./6.);
+    R2 = 5.*pow(NativeDouble(get_eps<fpv>()), 0.1);
+    gr = num_points_default();
+}
+
+template<typename fpv>
 void s_Gaussian2D<fpv>::ReadParams(tFileBuffer& FB) {
     // Reading pulse parameters
     tSpaceForm<fpv>::Read(FB, true /* allow periodics */);
@@ -30,145 +196,53 @@ void s_Gaussian2D<fpv>::ReadParams(tFileBuffer& FB) {
     // Background flow velocity
     PM.Request(FlowVelX, "FlowVelX");
     PM.Request(FlowVelY, "FlowVelY");
+    PM.Request(SoundSpeed, "SoundSpeed");
     PM.ReadParamsFromBuffer(FB);
 }
-//======================================================================================================================
 
-//======================================================================================================================
 template<typename fpv>
 void s_Gaussian2D<fpv>::Init(void){
     tSpaceForm<fpv>::Init();
     if(tSpaceForm<fpv>::Form!=tSpaceForm<fpv>::FORM_GAUSSIAN) crash("s_Gaussian2D: non-Gaussian form");
-    GI.Init(); // init of Gaussian quadrature rules
-}
-//======================================================================================================================
 
-
-//======================================================================================================================
-// Computation of the solution by the direct integration of what is given by the Fourier transformation
-//======================================================================================================================
-template<typename fpv> 
-tFixBlock<fpv,2> s_Gaussian2D_func(fpv omega, void* args) {
-    const fpv& omegar = omega*((fpv*)args)[0];
-    const fpv& omegat = omega*((fpv*)args)[1];
-    tFixBlock<fpv,2> f;
-    f[0] = omega * BesselJ0(omegar) * cos(omegat);
-    f[1] = omega * BesselJ1(omegar) * sin(omegat);
-    return f;
+    // Initialization of Gaussian quadrature rules
+    if(gr<0) gr = num_points_default();
+    GLI.Init(gr, GI_LEGENDRE);
+    GJI.Init(gr, GI_JACOBI1);
+    GLAI.Init(gr, GI_LAGUERRE);
 }
 
 template<typename fpv>
-void s_Gaussian2D<fpv>::CalcDirect(fpv t, fpv r, fpv& p, fpv& ur) const {
-    fpv mult = sqrt(fpv(2.0)*GetLn2<fpv>()) * tSpaceForm<fpv>::InvBTerm;
-    fpv args[2] = {r*mult, t*mult};
-    tFixBlock<fpv,2> f = GI.Integrate(0.0, 1e50, 1.0, 0.0, 0, 0, 1.0, MAX(args[0],args[1]), &s_Gaussian2D_func<fpv>, (void*)args);
-    p = f[0];
-    ur = f[1];
-}
-//======================================================================================================================
-
-
-//======================================================================================================================
-// Computation of the solution using the Parseval identity for the Bessel-Fourier transformation
-//======================================================================================================================
-template<typename fpv> 
-tFixBlock<fpv,3> s_Gaussian2D_funcBF(fpv xi, void* args) {
-    const fpv& r = ((fpv*)args)[0];
-    const fpv& t = ((fpv*)args)[1];
-    const fpv xx = 1.0 - xi;
-    fpv I[2];
-    BesselI<fpv>(r*t*xx, 2, get_eps<fpv>()*100.0, false, I); // I0(x)*exp(-x), I1(x)*exp(-x)
-    const fpv mult = xx / sqrt(1.0 + xx);
-    I[0] *= mult; I[1] *= mult;
-    tFixBlock<fpv,3> f;
-    f[0] = I[0];       // J_{0,1}
-    f[1] = I[1]*xx;    // J_{1,2}
-    f[2] = I[0]*xx*xx; // J_{0,3}
-    return f;
-}
-
-template<typename fpv>
-void s_Gaussian2D<fpv>::CalcViaBesselFourier(fpv t, fpv r, fpv& p, fpv& ur) const {
-    if(t < r*1e-10) crash("CalcViaBesselFourier error: t is too small");
-    fpv mult = sqrt(fpv(2.0)*GetLn2<fpv>()) * tSpaceForm<fpv>::InvBTerm;
-    r *= mult; t *= mult;
-    fpv args[2] = {r, t};
-    fpv q = MAX(MAX(fpv(1.0), r), r*t);
-    tFixBlock<fpv,3> f = GI.Integrate(0.0, 1.0, t, 1.0-r/t, 0, 1, 1.0, q, &s_Gaussian2D_funcBF<fpv>, (void*)args);
-    p  = f[0] - t*t*f[2] + r*t*f[1];
-    ur = - t*t*f[1] + r*t*f[0];
-}
-//======================================================================================================================
-
-
-//======================================================================================================================
-// Computation of the solution using the Parseval identity for the Fourier transformation
-//======================================================================================================================
-template<typename fpv> 
-tFixBlock<fpv,2> s_Gaussian2D_funcF(fpv xi, void* /*args*/) {
-    tFixBlock<fpv,2> f;
-    f[0] = 1./sqrt(2.+xi);
-    f[1] = -f[0]*(1.+xi);
-    return f;
-}
-template<typename fpv>
-void s_Gaussian2D<fpv>::CalcViaFourier(fpv t, fpv r, fpv& p, fpv& ur) const {
-    fpv mult = sqrt(fpv(2.0)*GetLn2<fpv>()) * tSpaceForm<fpv>::InvBTerm;
-    r *= mult;
-    t *= mult;
-    if(r < 1e-10) crash("CalcViaFourier error: r is too small");
-    fpv q = MAX(fpv(0.5), r);
-    tFixBlock<fpv,2> f = GI.Integrate(0.0, 1e50, r, t/r-1.0, 1, 1, sqrt(t/r), q, &s_Gaussian2D_funcF<fpv>, NULL);
-    tFixBlock<fpv,2> g = GI.Integrate(0.0, 1e50, r, -t/r-1.0, 1, 1, sqrt(t/r), q, &s_Gaussian2D_funcF<fpv>, NULL);
-    mult = r / sqrt(GetPiNumber2<fpv>());
-    p  = (f[0]+g[0]) * mult;
-    ur = (-f[1]+g[1]) * mult;
-}
-//======================================================================================================================
-
-
-//======================================================================================================================
-template<typename fpv>
-void s_Gaussian2D<fpv>::PointValue(fpv t, const fpv* coord, fpv* uex) const{
+void s_Gaussian2D<fpv>::PointValue(fpv tt, const fpv* coord, fpv* uex) const{
+    if(GLI.GN==NULL || GJI.GN==NULL || GLAI.GN==NULL) crash("Init not done");
     for(int ivar=Var_R; ivar<Var_N; ivar++) uex[ivar] = 0.0;
-    if(fabs(tSpaceForm<fpv>::Aterm) < tiny) return;
+    const fpv mult = sqrt(fpv(2.0)*GetLn2<fpv>()) * tSpaceForm<fpv>::InvBTerm;
+    const tSpaceForm<fpv>& SF = *this;
 
-    for(int iPerX = -tSpaceForm<fpv>::MaxPer[0]; iPerX <= tSpaceForm<fpv>::MaxPer[0]; iPerX++)
-    for(int iPerY = -tSpaceForm<fpv>::MaxPer[1]; iPerY <= tSpaceForm<fpv>::MaxPer[1]; iPerY++) {
-        if(tSpaceForm<fpv>::Checkerboard) if((iPerX+iPerY)&1) continue;
-        if(fabs(tSpaceForm<fpv>::PerX) > 0.5*huge && iPerX) continue;
-        if(fabs(tSpaceForm<fpv>::PerY) > 0.5*huge && iPerY) continue;
+    for(int iPerX = -SF.MaxPer[0]; iPerX <= SF.MaxPer[0]; iPerX++)
+    for(int iPerY = -SF.MaxPer[1]; iPerY <= SF.MaxPer[1]; iPerY++) {
+        if(SF.Checkerboard) if((iPerX+iPerY)&1) continue;
         // Coordinates, taking into account the background flow and periodical b.c.
-        fpv x = coord[0] - tSpaceForm<fpv>::r0[0] - FlowVelX*t + tSpaceForm<fpv>::PerX * iPerX;
-        fpv y = coord[1] - tSpaceForm<fpv>::r0[1] - FlowVelY*t + tSpaceForm<fpv>::PerY * iPerY;
-        fpv r = sqrt(x*x+y*y);
+        fpv x = coord[0] - SF.r0[0] - FlowVelX*tt + SF.PerX * iPerX;
+        fpv y = coord[1] - SF.r0[1] - FlowVelY*tt + SF.PerY * iPerY;
+        // Scaling coordinates and time to the case with the initial pulse exp(-0.5*r^2)
+        fpv r = sqrt(x*x+y*y) * mult;
+        fpv t = tt * mult * SoundSpeed;
 
         fpv p, ur;
-        if(t < tiny) { // Calculating the solution using the Taylor expansion at t=0
-            fpv alpha = - GetLn2<fpv>() * tSpaceForm<fpv>::InvBTerm * tSpaceForm<fpv>::InvBTerm;
-            fpv f0 = exp(alpha*r*r); // значение
-            p = f0; ur = 0.0;
-            if(t > 0.0) {
-                fpv f1_r = 2.0*alpha*f0; // first derivative divided by l
-                fpv f2 = 2.0*alpha*(1.0 + 2.0*alpha*r)*f0; // second derivative
-                p += 0.5*t*t*(f2 + f1_r);
-                ur = - t * f1_r * r;
-            }
-        }
-        else if(r > tSpaceForm<fpv>::Bterm) CalcViaFourier(t, r, p, ur);
-        else if(t < tSpaceForm<fpv>::Bterm*(2 + 1.2*sizeof(fpv))) CalcDirect(t, r, p, ur);
-        else CalcViaBesselFourier(t, r, p, ur);
+        get_solution(t, r, p, ur);
 
-        uex[Var_R] += p * tSpaceForm<fpv>::Aterm;
-        if(r > tiny) {
-            uex[Var_U] += ur*x/r * tSpaceForm<fpv>::Aterm;
-            uex[Var_V] += ur*y/r * tSpaceForm<fpv>::Aterm;
+        uex[Var_R] += p;
+        if(r > 1e-100) {
+            uex[Var_U] += ur*x*mult/r;
+            uex[Var_V] += ur*y*mult/r;
         }
     }
     uex[Var_P] = uex[Var_R];
+    for(int ivar=0; ivar<5; ivar++) uex[ivar] *= SF.Aterm;
+    uex[1]*=SoundSpeed; uex[2]*=SoundSpeed; uex[3]*=SoundSpeed; uex[4]*=SoundSpeed*SoundSpeed;
 }
 //======================================================================================================================
-
 
 // Template classes instantiation
 template struct s_Gaussian2D<NativeDouble>;
@@ -177,6 +251,38 @@ template struct s_Gaussian2D<dd_real>;
 template struct s_Gaussian2D<qd_real>;
 #endif
 
+
+// Verification subroutine
+#ifdef EXTRAPRECISION_COLESO
+#define real_type1 double //dd_real
+#define real_type2 dd_real //qd_real
+#define minval 1e-20
+#define maxval 1e10
+#define threshold 2e-15
+void CheckGaussian() {
+    s_Gaussian2D<real_type1> S1;
+    s_Gaussian2D<real_type2> S2;
+    S1.Init();
+    S2.Init();
+
+    const double mult = 1.01; // multiplication step
+    double max_err = 0.0;
+    real_type2 r, t;
+    for(r=0.0; r<=maxval; r*=mult) {
+        for(t=0.0; t<=maxval; t*=mult) {
+            real_type1 p1,ur1; S1.get_solution(double(t),double(r),p1,ur1);
+            real_type2 p2,ur2; S2.get_solution(t,r,p2,ur2);
+            double err = fabs(double(p1-p2)) + fabs(double(ur1-ur2));
+            if(err>max_err) max_err = err;
+            if(err>threshold)
+                printf("% e % e  % 25.15e % 25.15e\n", double(r), double(t), double(p2), err);
+            if(t<0.999*minval) t=minval/mult;
+        }
+        if(r<0.999*minval) r=minval/mult;
+    }
+    printf("max_err = %e\n", max_err); // 1.926437e-15
+}
+#endif
 
 
 // *********************************************************************************************************************
@@ -196,6 +302,7 @@ void s_Gaussian3D::ReadParams(tFileBuffer& FB) {
     PM.Request(FlowVelX, "FlowVelX");
     PM.Request(FlowVelY, "FlowVelY");
     PM.Request(FlowVelZ, "FlowVelZ");
+    PM.Request(SoundSpeed, "SoundSpeed");
     PM.ReadParamsFromBuffer(FB);
 }
 //======================================================================================================================
@@ -214,7 +321,7 @@ void s_Gaussian3D::Init(void){
 void s_Gaussian3D::CalcValues(double t, double x, double y, double z, double* uex) const {
     // non-dimentionalizing
     const double qqq = sqrt(2.*CLN2);
-    double mult = qqq * InvBTerm; 
+    double mult = qqq * InvBTerm;
     t *= mult; x *= mult; y *= mult; z *= mult;
     double r = sqrt(x*x+y*y+z*z);
 
@@ -275,7 +382,7 @@ void s_Gaussian3D::PointValue(double T, const double* coord, double* uex) const 
             r[1] = coord[1] - r0[1] - FlowVelY*T - PerY * iPerY;
             r[2] = coord[2] - r0[2] - FlowVelZ*T - PerZ * iPerZ;
 
-            CalcValues(T, r[0], r[1], r[2], uex);
+            CalcValues(T*SoundSpeed, r[0], r[1], r[2], uex);
         }
     }
     else {
@@ -285,10 +392,11 @@ void s_Gaussian3D::PointValue(double T, const double* coord, double* uex) const 
             double rr0[3] = {r0[0], r0[1], r0[2]};
             double angle = Pi2 / NAngularPeriods * iPerPhi;
             RotateVector(rr0, e, angle, rr0); // Выбираем положение источника по периоду
-            double r[3] = {coord[0]-rr0[0], coord[1]-rr0[1], coord[2]-rr0[2]- PerZ * iPerZ};
-            CalcValues(T, r[0], r[1], r[2], uex);
+            double r[3] = {coord[0]-rr0[0]-FlowVelX*T, coord[1]-rr0[1]-FlowVelY*T, coord[2]-rr0[2]-FlowVelZ*T- PerZ * iPerZ};
+            CalcValues(T*SoundSpeed, r[0], r[1], r[2], uex);
         }
     }
+    uex[1]*=SoundSpeed; uex[2]*=SoundSpeed; uex[3]*=SoundSpeed; uex[4]*=SoundSpeed*SoundSpeed;
     for(int ivar=Var_R; ivar<=Var_P; ivar++) if(IsNaN(uex[ivar])) crash("s_Gaussian3D: NaN detected");
 }
 //======================================================================================================================

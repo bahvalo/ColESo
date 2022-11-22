@@ -9,7 +9,8 @@
 
 enum tGItype {
     GI_LEGENDRE = 0,  // Gauss-Legendre quadratures for int_0^1 f(x) dx
-    GI_JACOBI1  = 1   // Gauss-Jacobi quadratures for int_0^1 f(x)/sqrt(x) dx
+    GI_JACOBI1  = 1,  // Gauss-Jacobi quadratures for int_0^1 f(x)/sqrt(x) dx
+    GI_LAGUERRE = 2   // Gauss-Laguerre quadratures for int_0^{\infty} f(x) exp(-x) dx
 };
 
 template<typename fpv>
@@ -51,29 +52,6 @@ struct tGaussIntegrator {
         }
         return *this;
     }
-};
-
-// Calculation using compound Gauss formula of the integral
-// int exp(-alpha^2 (x-x0)^2/2) (x-x0)^k h(x) x^gamma dx, x = xmin..xmax,
-// where k=0,1,... (not big), alpha>0, gamma=0 (mode=0) or -1/2 (mode=1),
-// h -- analytic function on [0..xmax] with convergence raduis >=r at each point, q = 1/r.
-// If mode==1, xmin should be zero
-template<typename fpv>
-struct tCompoundGaussIntegrator {
-    tGaussIntegrator<fpv> GLI, GJI; // Gauss-Legendre and Gauss-Jacobi integrators
-    double reducer; // Workaround: multiply number of quadrature nodes by this value (set < 1 to reduce computation time)
-    tCompoundGaussIntegrator() { reducer = 1.0; }
-    inline void Clear() { GLI.Clear(); GJI.Clear(); } // not a destructor - just nullify pointers and data
-    inline void Free() { GLI.Free(); GJI.Free(); } // the same as destructor
-    inline void Init(int GR = 0) {
-        if(GR<=0) GR = sizeof(fpv)*4;
-        GLI.Init(GR, GI_LEGENDRE);
-        GJI.Init(GR, GI_JACOBI1);
-    }
-    // Automatic integration subroutine
-    template<unsigned int N>
-    tFixBlock<fpv, N> Integrate(fpv xmin, fpv xmax, fpv alpha, fpv x0, int k, int mode,
-                                fpv M, fpv q, tFixBlock<fpv ,N> (*fun_ptr)(fpv, void*), void*) const;
 };
 
 #endif

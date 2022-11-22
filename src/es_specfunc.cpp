@@ -373,7 +373,7 @@ NativeDouble BesselPrimeZero(int AngularMode, int RadialMode, int log) {
 // z      = argument
 // N      = desirable number of functions
 // eps    = desirable accuracy (for example, 1e-16)
-// Output: 
+// Output:
 // n      = the index to start the backward recursion from
 // ncalc  = maximal index with reliable value of J_n(x)
 //======================================================================================================================
@@ -385,7 +385,7 @@ void InitBackwardRecursion(const std::complex<NativeDouble>& z, int N, NativeDou
     // 1e306 is near the largest value representable in double precision
     const NativeDouble very_huge = 1e306 * eps;
 
-    // Let p_n follow the same recursion relations as Bessel functions, 
+    // Let p_n follow the same recursion relations as Bessel functions,
     // with the initial conditions p_{n-1}=1 and p_n=2*n/z, where n = [|z|]+1
     std::complex<NativeDouble> p, pold, plast;
     n = int(magZ) + 1;
@@ -528,9 +528,9 @@ int BesselFunctionsComplex(std::complex<fpv> z, int N, std::complex<fpv> *J, int
         } \
     } while(0)
 
-    // Now we find 'n' (the index we start the backward recursion from) 
+    // Now we find 'n' (the index we start the backward recursion from)
     // and 'ncalc' (maximal index with reliable value of J_n(x))
-    // For the case if higher-precision arithmetic model is used, 
+    // For the case if higher-precision arithmetic model is used,
     // first argument is converted to double-precision
     int n, ncalc;
     InitBackwardRecursion(std::complex<NativeDouble>(NativeDouble(z.real()), NativeDouble(z.imag())),
@@ -588,7 +588,7 @@ int BesselFunctionsComplex(std::complex<fpv> z, int N, std::complex<fpv> *J, int
 //======================================================================================================================
 
 //======================================================================================================================
-// Debug subroutine: calculate the relative difference 
+// Debug subroutine: calculate the relative difference
 // between the values of J_n(z) obtained with different n_extra_steps
 //======================================================================================================================
 template<class fpv>
@@ -680,7 +680,32 @@ void BesselI(fpv x, int nmax, fpv eps, int s, fpv *t) {
         for (int p = 1; p < nmax; ++p) t[p] = 0.;
         return;
     }
+
     const fpv two_over_x = 2.0/x;
+    if(y <= 2. && nmax==2) {
+        // Calculating the value of I_0(x) using the Taylor series
+        fpv term = 1.0;
+        t[0] = 1.0;
+        for(int m=1; term > get_eps<fpv>()*t[0]; m++) {
+            term *= (0.25*y*y) / fpv(m*m);
+            t[0] += term;
+        };
+        // Calculating the value of I_1(|x|) using the Taylor series
+        term = 0.5*y;
+        t[1] = term;
+        for(int m=1; term > get_eps<fpv>()*t[0]; m++) {
+            term *= (0.25*y*y) / fpv(m*(m+1));
+            t[1] += term;
+        };
+        // From I_1(|x|) to I_1(x)
+        if(x<0) t[1]=-t[1];
+        if(s==0) {
+            term = exp(-x);
+            t[0]*=term;
+            t[1]*=term;
+        }
+        return;
+    }
 
     const fpv inv_sum_exact = s ? exp(-x) : fpv(1.);
     if (inv_sum_exact < 1e-100) crash("BesselI error: argument is too much");
@@ -741,4 +766,92 @@ template void BesselI<NativeDouble>(NativeDouble x, int nmax, NativeDouble eps, 
 #ifdef EXTRAPRECISION_COLESO
 template void BesselI<dd_real>(dd_real x, int nmax, dd_real eps, int s, dd_real *t);
 template void BesselI<qd_real>(qd_real x, int nmax, qd_real eps, int s, qd_real *t);
+#endif
+
+
+//======================================================================================================================
+// Fresnel integrals C(x) = int_0^x cos(pi/2 t**2) dt, S(x) = int_0^x sin(pi/2 t**2) dt
+// The explanation of the algorithm can be found in Sect. 16.5 of:
+// Shanjie Zhang, Jianming Jin, Computation of special functions, A Wiley interscience publication, 1996
+// The algorithm is adjusted for the double-double and quad-double precision
+//======================================================================================================================
+template<typename fpv>
+void Fresnl(fpv _x, fpv& S, fpv& C) {
+    if(_x==0.0) { S=0.0; C=0.0; return; }
+    const fpv eps = get_eps<fpv>();
+    const fpv pi = GetPiNumber<fpv>();
+    const fpv x = fabs(_x);
+    const fpv px = pi*x;
+    const fpv t = 0.5*px*x;
+    const fpv t2 = t*t;
+    const fpv very_small = 1e-100;
+    const fpv very_huge = 1.0/very_small;
+    if(x<2.5) {
+        fpv r = x;
+        C = r;
+        for(int k=1; k<=60; k++) {
+            r = -0.5*r*fpv(4*k-3)/fpv(k*(2*k-1)*(4*k+1))*t2;
+            C += r;
+            if(fabs(r) < eps*fabs(C)) break;
+        }
+        S = x*t/fpv(3.0);
+        r = S;
+        for(int k=1; k<=60; k++) {
+            r = -0.5*r*fpv(4*k-1)/fpv(k*(2*k+1)*(4*k+3))*t2;
+            S += r;
+            if(fabs(r) < eps*fabs(S)) break;
+        }
+    }
+    else if(x < (sizeof(fpv)==8 ? 4.5 : (sizeof(fpv)==16 ? 6.85 : 9.8))) {
+        int M = 0;
+        if(sizeof(fpv)==8) M = 42 + int(NativeDouble(t)*1.75); // original variant (~1.5 times excessive)
+        if(sizeof(fpv)==16) M = int(x*x+14.*x+12.);
+        if(sizeof(fpv)==32) M = int(x*x+18.*x+31.);
+        fpv su = 0.0;
+        C = S = 0.0;
+        fpv f1 = 0.0, f0 = 1e-100, f;
+        const fpv inv_t = 1.0/t;
+        for(int k=M; k>=0; k--) {
+            f = fpv(2*k+3)*f0*inv_t - f1;
+            if(k&1) S += f;
+            else C += f;
+            su += fpv(2*k+1)*f*f;
+            f1 = f0;
+            f0 = f;
+            if(f > very_huge) { f0*=very_small; f1*=very_small; su*=very_small*very_small; C*=very_small; S*=very_small; }
+        }
+        su = x/sqrt(su);
+        C *= su;
+        S *= su;
+    }
+    else {
+        const int nterms = int(-0.5*log(eps));
+        const fpv inv_4t2 = 0.25/t2;
+        fpv r = 1.0, f = 1.0;
+        for(int k=1; k<=nterms; k++) {
+            r = -r*fpv((4*k-1)*(4*k-3)) * inv_4t2;
+            f += r;
+        }
+        r = 1.0 / (px*x);
+        fpv g = r;
+        for(int k=1; k<=nterms; k++) {
+            r = -r*fpv((4*k+1)*(4*k-1)) * inv_4t2;
+            g += r;
+        }
+        fpv sint = sin(t), cost = cos(t);
+        C = 0.5 + (f*sint - g*cost) / px;
+        S = 0.5 - (f*cost + g*sint) / px;
+    }
+    if(_x<0) { C=-C; S=-S; }
+}
+
+// For the double precision, use the function of the cephes library
+void fresnl(NativeDouble x, NativeDouble& ss, NativeDouble& cc);
+template<> void Fresnl<NativeDouble>(NativeDouble x, NativeDouble& ss, NativeDouble& cc) { fresnl(x, ss, cc); }
+
+// Instantiation of the Fresnel integral functions
+template void Fresnl<NativeDouble>(NativeDouble x, NativeDouble& ss, NativeDouble& cc);
+#ifdef EXTRAPRECISION_COLESO
+template void Fresnl<dd_real>(dd_real x, dd_real& ss, dd_real& cc);
+template void Fresnl<qd_real>(qd_real x, qd_real& ss, qd_real& cc);
 #endif

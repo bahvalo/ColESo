@@ -497,7 +497,7 @@ void s_IVP2D<fpv>::PointValueAA(fpv t, const fpv* coord, fpv* u) const {
 
 
 //======================================================================================================================
-// Calculation of the wave potential for the following problem: 
+// Calculation of the wave potential for the following problem:
 // evolution of a localized pulse of an arbitrary form
 //======================================================================================================================
 template<typename fpv>
@@ -567,10 +567,11 @@ void s_IVP2D<fpv>::PointValue(fpv t, const fpv* coord, fpv* uex) const {
 // *********************************************************************************************************************
 
 //======================================================================================================================
-void s_CornerPlanar::ReadParams(tFileBuffer& FB) {
+template<typename fpv>
+void s_CornerPlanar<fpv>::ReadParams(tFileBuffer& FB) {
     tParamManager PM;
     PM.Request(angle, "angle"); // angle (can be only 2*Pi/N with natural N). If N is even, then is no diffraction
-    PM.Request(phi0, "phi0");   // direction what does the incoming wave come from
+    PM.Request(phi0, "phi0");   // direction the incoming wave comes from
     PM.Request(X0, "X0");       // distance between the Gaussian center at t=0 and the corner vertex
     PM.Request(Bterm, "Bterm"); // half-width of the incoming Gaussian
     PM.Request(Aterm, "Aterm"); // amplitude of the incoming Gaussian
@@ -579,7 +580,8 @@ void s_CornerPlanar::ReadParams(tFileBuffer& FB) {
 //======================================================================================================================
 
 //======================================================================================================================
-void s_CornerPlanar::Init() {
+template<typename fpv>
+void s_CornerPlanar<fpv>::Init() {
     if(angle <= 1e-10 || angle > Pi2 + 1e-10)
         crash("s_CornerPlanar error: 2*Pi/angle should be a natural number");
 
@@ -595,116 +597,161 @@ void s_CornerPlanar::Init() {
 
     // Check that the incoming wave is inside the sector
     if(phi0 < 0 || phi0 > angle)
-        crash("s_CornerPlanar : error, phi0 is outside the corner");
+        crash("s_CornerPlanar error: phi0 is outside the corner");
 
     // Init of Gaussian quadrature rule
-    GI.Init();
+    H = sqrt(-2.*log(0.5*NativeDouble(get_eps<fpv>())));
+    GJI.Init(int(0.58*H*H)+1, GI_JACOBI1);
+
+    // Just constants
+    pi = GetPiNumber<fpv>();
+    pi2 = GetPiNumber2<fpv>();
+    const_sqrt_2ln2 = sqrt(2.*log(fpv(2.0)));
 }
 //======================================================================================================================
 
-
-tFixBlock<double,1> s_CornerPlanar_func_0(double, void*) { tFixBlock<double,1> f; f[0]=1.0; return f; }
-tFixBlock<double,1> s_CornerPlanar_func_1(double eta, void*) { tFixBlock<double,1> f; f[0] = 1./(eta+1); return f; }
-
-tFixBlock<double,1> s_CornerPlanar_func(double omega, void* args) {
-    static const double two_over_pi = 2./PiNumber;
-    double aomega   = ((double*)args)[0] * omega;   // alpha * omega
-    double apbomega = ((double*)args)[1] * omega; // (alpha+beta)*omega
-
-    NativeDouble fc = 1.0, fs = 0.0;
-    if(aomega > 1e-100) {
-        const double a = sqrt(two_over_pi * aomega);
-        fresnl(a, fs, fc);
-        fs /= NativeDouble(a); fc /= NativeDouble(a);
+//======================================================================================================================
+// Calculation of  E(y) = int_{0}^{infty} exp(-(x-y)^2/2) x^{-1/2} dx
+//======================================================================================================================
+template<typename fpv>
+fpv calc_E(fpv y, const tGaussIntegrator<fpv>& GJI) {
+    NativeDouble H = sqrt(-2.*log(0.5*NativeDouble(get_eps<fpv>())));
+    if(NativeDouble(y) > H+1.) {
+        // x=0 is outside the essential support of the Gaussian
+        // rewrite E(y) = int_{-infty}^{infty} exp(-x^2/2) f(x) dx, f(x) = Heaviside(x+y)/sqrt(x+y)
+        // and use the integration formula with a uniform step
+        int n = int(H*H/Pi2)+1;
+        fpv h = fpv(H/n);
+        fpv h2_2 = 0.5*h*h;
+        fpv E = 1./sqrt(y);
+        for(int j=1; j<=n; j++) {
+            E += exp(-(j*j)*h2_2) * (1./sqrt(y+j*h) + 1./sqrt(y-j*h));
+        }
+        return E * h;
     }
-
-    tFixBlock<double,1> f;
-    // f = Re (1 + i) (fc - i*fs) * (cos + i*sin)
-    f[0] = cos(apbomega) * (fc+fs) + sin(apbomega) * (fs-fc);
-    return f;
+    else {
+        // x=0 is inside the essential support of the Gaussian
+        // use the Gauss -- Jacobi quadrature rule
+        fpv b = y + H;
+        if(b<=0.0) return 0.0;
+        fpv E = 0.0;
+        for(int i=0; i<GJI.GR; i++) {
+            fpv tmp = b*GJI.GN[i] - y;
+            E += GJI.GC[i] * exp(-0.5*tmp*tmp);
+        }
+        return E * sqrt(b);
+    }
 }
-
 
 //======================================================================================================================
 // Calculating J0 = int f0(eta) d eta, from 0 to infinity, where
-// f0(eta) = exp(-(a*eta-b)^2 / 2) / sqrt(eta) / (eta + 1) / Pi
-// mode -- method of calculation (-1 - autodetect, 0 - standard, 1 - via Fourier transform)
+// f0(eta) = exp(-(alpha*eta-beta)^2 / 2) / sqrt(eta) / (eta + 1) / Pi
 //======================================================================================================================
-double s_CornerPlanar::EvalJ0(double a, double b, const tCompoundGaussIntegrator<double>& GI, int mode) {
-    if(a<0) { a=-a; b=-b; }
-    const double H = 9.0; // Gaussian truncation: exp(-H^2/2) ~ 0
-    if(b < -H) return 0.0;
-    if(mode!=0 && mode!=1) mode = (a < 1.0) && (a+b < H+1);
-    if(!mode) {
-        double eta0 = (a<1e-80) ? (1e50*SIGN(b)) : (b/a);
-        double etamin = (a<1e-80) ? 0.0 : MAX(0.0, (b - H) / a);
-        tFixBlock<double,1> I;
-        I = GI.Integrate(0.0, 1e50, a, eta0, 0, 1, 1.0, 1./(etamin+1.0), s_CornerPlanar_func_1, NULL);
-        return I[0] / PiNumber;
+template<typename fpv>
+fpv calc_J0(fpv alpha, fpv beta, const tGaussIntegrator<fpv>& GJI) {
+    if(alpha < get_eps<fpv>()*get_eps<fpv>()) {
+        return exp(-0.5*beta*beta);
+    }
+
+    fpv H = sqrt(-2.*log(0.5*NativeDouble(get_eps<fpv>())));
+    if(H*beta > H*H+1.0) { // beta > H+1/H
+        if(alpha < 1e-100) return 0.0;
+        const fpv inv_alpha = 1.0 / alpha;
+        // use the uniform step
+        fpv J0 = 0.0;
+        int n = int(H*H/Pi2);
+        fpv h = fpv(H/n);
+        for(int i=-n; i<n; i++) {
+            fpv x = i*h;
+            fpv eta = (x+beta)*inv_alpha;
+            J0 += exp(-0.5*x*x) / (sqrt(eta)*(eta+1));
+        }
+        return J0*h*inv_alpha / GetPiNumber<fpv>();
     }
     else {
-        double args[2] = {a, a+b};
-        tFixBlock<double,1> I = GI.Integrate(0.0, 1e50, 1.0, 0.0, 1, 1, 1.0, 39., s_CornerPlanar_func, args);
-        return exp(-0.5*SQR(a+b)) - 2./PiNumber * sqrt(a) * I[0];
+        // use the Gauss -- Jacobi formula
+        fpv b = (beta+sqrt(2.0)*H) / alpha;
+        if(b<=0.0) return fpv(0.0);
+        fpv J0 = 0.0;
+        fpv JJ = 0.0;
+        for(int i=0; i<GJI.GR; i++) {
+            fpv eta = b*GJI.GN[i];
+            fpv tmp = eta*alpha - beta;
+            eta = GJI.GC[i] / (eta+1.0);
+            J0 += eta * exp(-0.5*tmp*tmp);
+            JJ += eta;
+        }
+        fpv sqrt_b = sqrt(b);
+        J0 *= sqrt_b;
+        // 0.2071 ~= 0.2071067811865475244 = 0.5*(sqrt(2.0)-1.0)
+        if(!(alpha+beta>H || alpha>0.2071*(beta+H))) {
+            JJ *= sqrt_b;
+            JJ -= 2.0*atan(sqrt_b);
+            JJ *= exp(-0.5*(alpha+beta)*(alpha+beta));
+            J0 -= JJ;
+        }
+        return J0 / GetPiNumber<fpv>();
     }
 }
-//======================================================================================================================
-
 
 //======================================================================================================================
-void s_CornerPlanar::PointValue(double t, const double* coord, double* uex) const {
+template<typename fpv>
+void s_CornerPlanar<fpv>::PointValue(fpv t, const fpv* coord, fpv* uex) const {
     if(!n) crash("s_CornerPlanar error: init not done");
     for(int ivar=Var_R; ivar<=Var_P; ivar++) uex[ivar] = 0.0;
 
+    // Special case: wave comes parallel to a corner ray
+    // Allow to have a reflection of the sector and reflected solution there
+    if(fabs(phi0) < 1e-50 && !(m==2 && n==1) && coord[1]<0.0) {
+        fpv coord_new[3] = {coord[0], -coord[1], 0.0};
+        PointValue(t, coord_new, uex);
+        uex[Var_V] = -uex[Var_V];
+        return;
+    }
+
     // Direction to the observer
-    double r = sqrt(SQR(coord[0]) + SQR(coord[1]));
-    double ref_Phi = GetAngle(coord[0], coord[1]);
+    fpv r = sqrt(SQR(coord[0]) + SQR(coord[1]));
+    fpv ref_Phi = GetAngle(coord[0], coord[1]);
     if(ref_Phi > angle+tinyflt) return; // Error: point is outside the corner
 
-    const double alpha0 = sqrt(2.0*CLN2) / Bterm;
+    const fpv alpha0 = const_sqrt_2ln2 / Bterm;
     for(int iwave = 0; iwave < 2*n; iwave++) { // Loop over waves (i. e. over reflections of the incoming wave)
-        // Detect of the wave direction on the Riemann surface
-        double phi00 = phi0 + (iwave>>1) * 2.0*angle;
-        if(iwave&1) phi00 = Pi2*m - phi00;
-        double psi = ref_Phi - phi00; // (-4*pi, 2*pi)
-        if(psi < 0.0) psi += Pi2*m; // (0, 4*pi)
+        // Detect the wave direction on the Riemann surface
+        fpv phi_j = phi0 + (iwave>>1) * 2.0*angle;
+        if(iwave&1) phi_j = pi2*m - phi_j;
 
-        int gpsi = (psi < PiNumber || psi > 3.*PiNumber);
-        //--------------------------------------------------------------------
+        fpv psi = ref_Phi - phi_j; // (-4*pi, 2*pi)
+        if(psi < 0.0) psi += pi2*m; // (0, 4*pi)
+        int gpsi = (psi<pi || psi > 3.*pi);
+
         // 1. Incident (or reflected) wave
-        //--------------------------------------------------------------------
+        fpv form = 0.0;
         if(gpsi) {
-            double phase = t - X0 + r * cos(psi); // Вычислим фазу волны
-            double form = exp(- 0.5*SQR(alpha0*phase));
-            uex[Var_P] += form;
-            uex[Var_U] -= form * cos(phi00);
-            uex[Var_V] -= form * sin(phi00);
+            fpv phase = t - X0 + r * cos(psi);
+            form = exp(- 0.5*SQR(alpha0*phase));
         }
 
-        //--------------------------------------------------------------------
-        // 2. Diffraction term
-        //--------------------------------------------------------------------
-        if(m==1) continue;
-
-        double a = t - r - X0;
-        double b = r*(1 + cos(psi));
-
-        double mult = - (1.0 - 2.0*gpsi) / 2.0;
-        double j0 = EvalJ0(alpha0 * b, alpha0 * a, GI);
-        uex[Var_P] -= mult * j0;
-        double dur   = - mult * j0 * cos(psi);
-        double duphi =   mult * j0 * sin(psi);
-
-        if(n==1 && r>tiny*tiny) { // 1/sqrt{r} term - only for half-line case
-            double delta = alpha0*a;
-            // Calculation of  E(delta) = int_{0}^{infty} exp(-(x-delta)^2/2) x^{-1/2} dx
-            tFixBlock<double,1> I = GI.Integrate(0.0, 1e50, 1.0, delta, 0, 1, 1.0, 0.0, s_CornerPlanar_func_0, NULL);
-            double E = I[0] / sqrt(2.*alpha0*PiNumber*PiNumber*r);
-            dur   += E * cos(0.5*psi);
-            duphi -= E * sin(0.5*psi);
+        // 2. Diffraction term #1
+        if(m==2) { // if m==1, then the angle of the corner is pi/n => no diffraction
+            fpv a = t - r - X0;
+            fpv b = cos(0.5*psi); b = 2*r*b*b;
+            fpv j0 = calc_J0(alpha0*b, alpha0*a, GJI);
+            form += j0 * (0.5-gpsi);
         }
-        uex[Var_U] -= dur * cos(ref_Phi) - duphi * sin(ref_Phi);
-        uex[Var_V] -= duphi * cos(ref_Phi) + dur * sin(ref_Phi);
+
+        uex[Var_P] += form;
+        uex[Var_U] -= form * cos(phi_j);
+        uex[Var_V] -= form * sin(phi_j);
+
+        // 3. Diffraction term #2 (~ 1/sqrt(r)) -- only for the half-line case
+        if(m==2 && n==1 && r>1e-200) {
+            fpv delta = alpha0*(t - r - X0);
+            fpv E = calc_E(delta, GJI) / sqrt(2.*alpha0*pi*pi*r);
+            fpv dur = E * cos(0.5*psi);
+            fpv duphi = - E * sin(0.5*psi);
+            uex[Var_U] -= dur * cos(ref_Phi) - duphi * sin(ref_Phi);
+            uex[Var_V] -= duphi * cos(ref_Phi) + dur * sin(ref_Phi);
+        }
     }
     uex[Var_U] *= Aterm;
     uex[Var_V] *= Aterm;
@@ -1461,18 +1508,67 @@ void s_Corner<fpv>::PointValue(fpv T, const fpv* coor, fpv* uex) const {
 }
 //======================================================================================================================
 
-// Instantiation of template classes 
+// Instantiation of template classes
 template struct s_IVP2D<double>;
 template struct s_Corner<double>;
+template struct s_CornerPlanar<double>;
 template struct s_IVP2DWP<double>;
 template struct s_CornerWP<double>;
 #ifdef EXTRAPRECISION_COLESO
 template struct s_IVP2D<qd_real>;
 template struct s_Corner<qd_real>;
+template struct s_CornerPlanar<qd_real>;
 template struct s_IVP2DWP<qd_real>;
 template struct s_CornerWP<qd_real>;
 template struct s_IVP2D<dd_real>;
 template struct s_Corner<dd_real>;
+template struct s_CornerPlanar<dd_real>;
 template struct s_IVP2DWP<dd_real>;
 template struct s_CornerWP<dd_real>;
+#endif
+
+// Verification subroutine
+#ifdef EXTRAPRECISION_COLESO
+#define real_type1 double
+#define real_type2 dd_real
+#define minval 1e-20
+#define maxval 1e4
+#define mult 1.05 // multiplication step
+#define threshold 4e-15
+void CheckCornerPlanar() {
+    s_CornerPlanar<real_type1> S1;
+    s_CornerPlanar<real_type2> S2;
+    S1.Init();
+    S2.Init();
+    const tGaussIntegrator<real_type1>& I1 = S1.get_GJI();
+    const tGaussIntegrator<real_type2>& I2 = S2.get_GJI();
+
+    if(1) {
+        real_type2 absdelta;
+        for(int sign=0; sign<2; sign++)  for(absdelta=0.0; absdelta<=maxval; absdelta*=mult) {
+            real_type2 delta = sign ? -absdelta : absdelta;
+            real_type1 E1 = calc_E<real_type1>(real_type1(delta), I1);
+            real_type2 E2 = calc_E<real_type2>(delta, I2);
+            double err = fabs(double(E2-E1));
+            if(err>threshold)
+                printf("% e  % 25.15e % 25.15e\n", double(delta), double(E2), err);
+            if(absdelta<minval) absdelta=minval/mult;
+        }
+    }
+    if(1) {
+        real_type2 alpha, absbeta;
+        for(int sign=0; sign<2; sign++)  for(alpha=0.0; alpha<=maxval; alpha*=mult) {
+            for(absbeta=0.0; absbeta<=maxval; absbeta*=mult) {
+                real_type2 beta = sign ? -absbeta : absbeta;
+                real_type1 E1 = calc_J0<real_type1>(real_type1(alpha), real_type1(beta), I1);
+                real_type2 E2 = calc_J0<real_type2>(alpha, beta, I2);
+                double err = fabs(double(E2-E1));
+                if(err>threshold)
+                    printf("% e % e  % 25.15e % 25.15e\n", double(alpha), double(beta), double(E2), err);
+                if(absbeta<minval) absbeta=minval/mult;
+            }
+            if(alpha<minval) alpha=minval/mult;
+        }
+    }
+}
 #endif
