@@ -37,7 +37,8 @@ void s_Cylinder::ReadParams(tFileBuffer& FB) {
 //======================================================================================================================
 void s_Cylinder::Init(void) {
     // Discretization by k
-    if(IsNaN(Kmax) || Kmax < tiny) Kmax = 6.0 / Bterm;
+    // Kmax*Bterm = sqrt(-2*ln(eps)) * sqrt(2*ln(2)), где eps -- требуемая точность. Для eps=1e-10 эта константа равна 8
+    if(IsNaN(Kmax) || Kmax < tiny) Kmax = 8.0 / Bterm;
     GI.Init(NumK);
 
     // Discretization by radius for integrals calculation

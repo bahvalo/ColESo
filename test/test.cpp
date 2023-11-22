@@ -247,7 +247,7 @@ int main(int argc, char** argv) {
     }
     if(SolutionName.empty() || CompareWords(SolutionName, "cornerplanar")) {
         {
-            SOLUTION(s_CornerPlanar, PARAMS/es_cornerplanar_1.txt, "DATA2D/cornerplanar_1.dat");
+            SOLUTION(s_CornerPlanar<double>, PARAMS/es_cornerplanar_1.txt, "DATA2D/cornerplanar_1.dat");
             for(double y = -13.; y<=16.; y+=0.5) {
                 for(double x = -25.0; x<=20.00000001; x+=0.5) {
                     double T = 60.0, C[3] = {x, y, 0.0};
@@ -259,7 +259,7 @@ int main(int argc, char** argv) {
             fclose(out);
         }
         {
-            SOLUTION(s_CornerPlanar, PARAMS/es_cornerplanar_2.txt, "DATA2D/cornerplanar_2.dat");
+            SOLUTION(s_CornerPlanar<double>, PARAMS/es_cornerplanar_2.txt, "DATA2D/cornerplanar_2.dat");
             for(double r = 0.; r<=1.000000001; r+=0.01) {
                 double phimax = 2.*PiNumber/3.;
                 for(double phi = 0.; phi<=phimax+0.000001; phi+=0.01*phimax) {

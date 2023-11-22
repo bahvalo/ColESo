@@ -538,14 +538,12 @@ void s_Couette::Init() {
     if(ViscType==4) if(IsNaN(TSutherland) || TSutherland<=0.0) crash("s_Couette: wrong TSutherland");
 
     FlowVel = 0.0;
-    //double Temp = condL&&condR ? 0.5*(tL+tR) : (condL ? tL : tR); // характерная температура
-    //SoundVel = sqrt(gam*Temp); // do not override, otherwise Sutherland constant will be wrong
-
     #ifdef _NOISETTE
+        double Temp = condL&&condR ? 0.5*(tL+tR) : (condL ? tL : tR); // характерная температура
         if(IsNaN(pressure)) { AutodetectPressure = 1; pressure = Temp; }
-    #else
-        if(IsNaN(pressure) || pressure <= 0.0) crash("s_ConcCyl: wrong pressure %e", pressure);
+        //SoundVel = sqrt(gam*Temp); // do not override, otherwise the Sutherland constant will be wrong
     #endif
+    if(IsNaN(pressure) || pressure <= 0.0) crash("s_ConcCyl: wrong pressure %e", pressure);
 }
 //======================================================================================================================
 

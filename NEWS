@@ -20,5 +20,8 @@ Changes for 1.3  (22.11.2022)
     BesselI function now uses Taylor series for a small argument
     Minor changes
 
+Changes for 1.4  (22.11.2023)
+    Minor adjustment for the settings of integration methods
+
 Known issues:
 1. s_WaveInChannel, the case of a planar channel. Only even (symmetric w.r.t. channel center) are implemented.

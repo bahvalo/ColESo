@@ -30,7 +30,7 @@ protected:
 public:
     tFuncType Type() const OVERRIDE { return FUNC_PULSATIONS; } // поскольку наследуем напрямую tPointFunction_EP, указываем тип
     int gr; // number of nodes for Gaussian quadrature rules. May be changed before Init()
-    inline int num_points_default() { return int(-1.156*log(NativeDouble(get_eps<fpv>())))+2; }
+    inline int num_points_default() { return int(-1.42*log(NativeDouble(get_eps<fpv>())))+2; }
     s_Gaussian2D();
 
     const char* filename() const { return "es_gaussian2d.txt"; }

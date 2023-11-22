@@ -616,7 +616,7 @@ void s_CornerPlanar<fpv>::Init() {
 template<typename fpv>
 fpv calc_E(fpv y, const tGaussIntegrator<fpv>& GJI) {
     NativeDouble H = sqrt(-2.*log(0.5*NativeDouble(get_eps<fpv>())));
-    if(NativeDouble(y) > H+1.) {
+    if(H*NativeDouble(y) > H*H+1.) {
         // x=0 is outside the essential support of the Gaussian
         // rewrite E(y) = int_{-infty}^{infty} exp(-x^2/2) f(x) dx, f(x) = Heaviside(x+y)/sqrt(x+y)
         // and use the integration formula with a uniform step
@@ -653,7 +653,7 @@ fpv calc_J0(fpv alpha, fpv beta, const tGaussIntegrator<fpv>& GJI) {
         return exp(-0.5*beta*beta);
     }
 
-    fpv H = sqrt(-2.*log(0.5*NativeDouble(get_eps<fpv>())));
+    NativeDouble H = sqrt(-2.*log(0.5*NativeDouble(get_eps<fpv>())));
     if(H*beta > H*H+1.0) { // beta > H+1/H
         if(alpha < 1e-100) return 0.0;
         const fpv inv_alpha = 1.0 / alpha;
@@ -670,7 +670,7 @@ fpv calc_J0(fpv alpha, fpv beta, const tGaussIntegrator<fpv>& GJI) {
     }
     else {
         // use the Gauss -- Jacobi formula
-        fpv b = (beta+sqrt(2.0)*H) / alpha;
+        fpv b = (beta+H) / alpha;
         if(b<=0.0) return fpv(0.0);
         fpv J0 = 0.0;
         fpv JJ = 0.0;
@@ -683,7 +683,7 @@ fpv calc_J0(fpv alpha, fpv beta, const tGaussIntegrator<fpv>& GJI) {
         }
         fpv sqrt_b = sqrt(b);
         J0 *= sqrt_b;
-        // 0.2071 ~= 0.2071067811865475244 = 0.5*(sqrt(2.0)-1.0)
+        // 0.2071 ~= 0.5*(sqrt(2.0)-1.0)
         if(!(alpha+beta>H || alpha>0.2071*(beta+H))) {
             JJ *= sqrt_b;
             JJ -= 2.0*atan(sqrt_b);
@@ -1531,10 +1531,9 @@ template struct s_CornerWP<dd_real>;
 #ifdef EXTRAPRECISION_COLESO
 #define real_type1 double
 #define real_type2 dd_real
-#define minval 1e-20
-#define maxval 1e4
 #define mult 1.05 // multiplication step
-#define threshold 4e-15
+#define NMAX 1000
+#define threshold 1.5e-15
 void CheckCornerPlanar() {
     s_CornerPlanar<real_type1> S1;
     s_CornerPlanar<real_type2> S2;
@@ -1545,29 +1544,29 @@ void CheckCornerPlanar() {
 
     if(1) {
         real_type2 absdelta;
-        for(int sign=0; sign<2; sign++)  for(absdelta=0.0; absdelta<=maxval; absdelta*=mult) {
-            real_type2 delta = sign ? -absdelta : absdelta;
-            real_type1 E1 = calc_E<real_type1>(real_type1(delta), I1);
-            real_type2 E2 = calc_E<real_type2>(delta, I2);
+        for(int sign=0; sign<2; sign++) for(int n=-NMAX; n<=NMAX; n++) {
+            real_type2 beta = pow(mult, n);
+            if(sign) beta *= -1.0;
+            real_type1 E1 = calc_E<real_type1>(real_type1(beta), I1);
+            real_type2 E2 = calc_E<real_type2>(beta, I2);
             double err = fabs(double(E2-E1));
             if(err>threshold)
-                printf("% e  % 25.15e % 25.15e\n", double(delta), double(E2), err);
-            if(absdelta<minval) absdelta=minval/mult;
+                printf("% e  % 25.15e % 25.15e\n", double(beta), double(E2), err);
         }
     }
     if(1) {
         real_type2 alpha, absbeta;
-        for(int sign=0; sign<2; sign++)  for(alpha=0.0; alpha<=maxval; alpha*=mult) {
-            for(absbeta=0.0; absbeta<=maxval; absbeta*=mult) {
-                real_type2 beta = sign ? -absbeta : absbeta;
+        for(int sign=0; sign<2; sign++) for(int n=-NMAX; n<=NMAX; n++) {
+            real_type2 beta = pow(mult, n);
+            if(sign) beta *= -1.0;
+            for(int na=-NMAX; na<=NMAX; na++) {
+                real_type2 alpha = pow(mult, na);
                 real_type1 E1 = calc_J0<real_type1>(real_type1(alpha), real_type1(beta), I1);
                 real_type2 E2 = calc_J0<real_type2>(alpha, beta, I2);
                 double err = fabs(double(E2-E1));
                 if(err>threshold)
                     printf("% e % e  % 25.15e % 25.15e\n", double(alpha), double(beta), double(E2), err);
-                if(absbeta<minval) absbeta=minval/mult;
             }
-            if(alpha<minval) alpha=minval/mult;
         }
     }
 }

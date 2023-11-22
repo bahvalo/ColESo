@@ -22,6 +22,19 @@
 					<Add option="-s" />
 				</Linker>
 			</Target>
+			<Target title="debug">
+				<Option output="../bin/qd_debug" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option object_output="../bin/qd_debug" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+				<Option createDefFile="1" />
+				<Compiler>
+					<Add option="-Wall" />
+					<Add option="-g" />
+					<Add directory="../" />
+				</Compiler>
+			</Target>
 		</Build>
 		<Unit filename="../qd/bits.cpp" />
 		<Unit filename="../qd/bits.h" />

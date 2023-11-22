@@ -42,6 +42,9 @@ testf: lib
 testcpprun: lib
 	$(MAKE) -C ./test testcpprun
 
+testcppqd: libqd qd-package
+	$(MAKE) -C ./test testcppqd
+
 testcrun: lib
 	$(MAKE) -C ./test testcrun
 

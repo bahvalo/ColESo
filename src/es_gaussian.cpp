@@ -107,7 +107,7 @@ void s_Gaussian2D<fpv>::CalcViaFourier_uniform(const fpv& t, const fpv& r, fpv& 
 
 template<typename fpv>
 void s_Gaussian2D<fpv>::CalcAsymptSeries(const fpv& t, const fpv& r, fpv& p, fpv& ur) const {
-    fpv eps = get_eps<fpv>();
+    fpv eps = 0.5*get_eps<fpv>();
     const int M_max = int(-log(eps));
     const fpv r2 = r*r;
     const fpv inv_t = fpv(1.0) / t;
@@ -182,7 +182,7 @@ s_Gaussian2D<fpv>::s_Gaussian2D() : tSpaceForm<fpv>() {
 
     // Parameters of numerical integration and choosing a method to calculate the solution
     H = sqrt(-2.*log(0.5*NativeDouble(get_eps<fpv>())));
-    R1 = pow(15.0*NativeDouble(get_eps<fpv>()), 1./6.);
+    R1 = pow(7.5*NativeDouble(get_eps<fpv>()), 1./6.);
     R2 = 5.*pow(NativeDouble(get_eps<fpv>()), 0.1);
     gr = num_points_default();
 }
@@ -256,8 +256,6 @@ template struct s_Gaussian2D<qd_real>;
 #ifdef EXTRAPRECISION_COLESO
 #define real_type1 double //dd_real
 #define real_type2 dd_real //qd_real
-#define minval 1e-20
-#define maxval 1e10
 #define threshold 2e-15
 void CheckGaussian() {
     s_Gaussian2D<real_type1> S1;
@@ -268,19 +266,20 @@ void CheckGaussian() {
     const double mult = 1.01; // multiplication step
     double max_err = 0.0;
     real_type2 r, t;
-    for(r=0.0; r<=maxval; r*=mult) {
-        for(t=0.0; t<=maxval; t*=mult) {
+    for(int nt=-1000; nt<1000; nt++) {
+        t = pow(mult, nt);
+        for(int nr=-1000; nr<1000; nr++) {
+            r = pow(mult, nr);
             real_type1 p1,ur1; S1.get_solution(double(t),double(r),p1,ur1);
             real_type2 p2,ur2; S2.get_solution(t,r,p2,ur2);
-            double err = fabs(double(p1-p2)) + fabs(double(ur1-ur2));
-            if(err>max_err) max_err = err;
-            if(err>threshold)
-                printf("% e % e  % 25.15e % 25.15e\n", double(r), double(t), double(p2), err);
-            if(t<0.999*minval) t=minval/mult;
+            double errp = fabs(double(p1-p2)), erru = fabs(double(ur1-ur2));
+            if(errp>max_err) max_err = errp;
+            if(erru>max_err) max_err = erru;
+            if(errp+erru>threshold)
+                printf("% e % e  % 25.15e % 25.15e % 25.15e\n", double(r), double(t), double(p2), errp, erru);
         }
-        if(r<0.999*minval) r=minval/mult;
     }
-    printf("max_err = %e\n", max_err); // 1.926437e-15
+    printf("max_err = %e\n", max_err); // 2.199392e-15
 }
 #endif
 
